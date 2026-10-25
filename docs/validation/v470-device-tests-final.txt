@@ -1,0 +1,13 @@
+Performing Streamed Install
+Success
+Performing Streamed Install
+Success
+
+cn.yueji.balance.V470UiTest:.................
+
+Time: 111.502
+
+OK (17 tests)
+
+
+/sdcard/Android/data/cn.yueji.balance/files/qa-v470/./: 14 files pulled, 0 skipped. 7.2 MB/s (2493274 bytes in 0.330s)

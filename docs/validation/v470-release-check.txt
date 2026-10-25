@@ -1,0 +1,19 @@
+# Yueji 4.7.0 release check
+
+- versionName: 4.7.0
+- versionCode: 18
+- applicationId: cn.yueji.balance
+- public repository: https://github.com/risnerohman625/Yueji
+- APK: dist/Yueji-4.7.0-debug.apk
+- SHA256: see dist/Yueji-4.7.0-debug.apk.sha256
+- JVM/data tests: 308 passed (`tools/test-data.ps1`)
+- Android build + lint: passed (`tools/build.ps1 -Check`, `tools/build-androidtest.ps1 -Check`)
+- V470 emulator UI tests: 17 passed (`cn.yueji.balance.V470UiTest`)
+- Device evidence: docs/validation/v470-device-second.txt and docs/screenshots-v470/
+- OCR evidence: attached watchlist screenshot was copied to the emulator and code recognition test passed.
+- Original project: E:/Projects/记账软件/YuejiV4.6.6 was not modified.
+- Notes: debug APK is not a release-signed store artifact. Network-dependent fund profile/market data uses public endpoints and can be unavailable offline; cached values are retained.
+
+- Core emulator regression: 41 passed; see v470-regression.txt.
+- Detail rows evenly centered; elapsed age uses calendar years and remaining days.
+- Final APK SHA256: 20377F619310917FF49B5FD80B4F15D1EB8D0181DF93CC75A8649237E6A536CB

@@ -1,0 +1,4 @@
+Original 4.6.6 app/src files verified against pre-edit hashes: 172
+Changed source files: 0
+Original project directory: E:\Projects\记账软件\YuejiV4.6.6
+4.7.0 workspace is a separate full copy.

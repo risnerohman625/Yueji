@@ -1,0 +1,17 @@
+{
+  "versionName": "4.7.0",
+  "versionCode": 18,
+  "applicationId": "cn.yueji.balance",
+  "bytes": 25475681,
+  "sha256": "20377F619310917FF49B5FD80B4F15D1EB8D0181DF93CC75A8649237E6A536CB",
+  "cpuArchitectures": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86",
+    "x86_64"
+  ],
+  "identicalOcrPayloadCount": 29,
+  "baseline": "4.6.6",
+  "mainContainsNoTestClassesOrPrivateFixtures": true,
+  "debugCertificateSHA256": "52326c1c3837684150e996b3c6a0e007d19c78e70de397b7bad82d5e48126915"
+}

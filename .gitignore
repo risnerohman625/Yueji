@@ -1,0 +1,31 @@
+.gradle/
+.idea/
+local.properties
+**/build/
+*.iml
+captures/
+.tools/
+gradle-home/
+*.jks
+*.keystore
+.env*
+
+# Only current release artifacts, not copied earlier versions.
+dist/*
+!dist/Yueji-4.7.0-debug.apk
+!dist/Yueji-4.7.0-debug.apk.sha256
+
+# Private historical workbooks, OCR fixtures, screenshots and old QA remain local.
+app/src/androidTest/assets/
+docs/*
+!docs/Yueji-4.7.0-修改说明.md
+!docs/PRIVACY.md
+!docs/validation/
+docs/validation/*
+!docs/validation/v470-release-check.txt
+!docs/validation/v470-data-tests-final.txt
+!docs/validation/v470-device-tests-final.txt
+!docs/validation/v470-build-final.txt
+!docs/validation/v470-package-check.json
+!docs/validation/v470-regression.txt
+!docs/validation/v470-source-integrity.txt
