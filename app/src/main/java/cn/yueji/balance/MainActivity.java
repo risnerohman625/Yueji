@@ -137,8 +137,10 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleDestination(intent);render();if(tab==TAB_FUNDS&&page.isEmpty()&&data.settings.autoRefresh)autoRefreshFunds();}
     @Override protected void onPause(){super.onPause();AppLock.markBackground();}
-    @Override protected void onResume(){super.onResume();if(data!=null&&data.settings.appLockEnabled&&AppLock.shouldLockNow(this))render();}
-    @Override protected void onDestroy(){if(activeLock!=null)activeLock.dismiss();if(networkDialog!=null)networkDialog.dismiss();if(iconChooser!=null)iconChooser.dismiss();if(fundScreenshot!=null)fundScreenshot.dispose();if(watchScreens!=null)watchScreens.dispose();store.close();super.onDestroy();}
+    AppUpdates appUpdates;
+    AppUpdates updates(){if(appUpdates==null)appUpdates=new AppUpdates(this);return appUpdates;}
+    @Override protected void onResume(){super.onResume();getWindow().getDecorView().post(()->{if(!isFinishing()&&activeLock==null)updates().startup();});if(data!=null&&data.settings.appLockEnabled&&AppLock.shouldLockNow(this))render();}
+    @Override protected void onDestroy(){if(appUpdates!=null)appUpdates.dispose();if(activeLock!=null)activeLock.dismiss();if(networkDialog!=null)networkDialog.dismiss();if(iconChooser!=null)iconChooser.dismiss();if(fundScreenshot!=null)fundScreenshot.dispose();if(watchScreens!=null)watchScreens.dispose();store.close();super.onDestroy();}
     void showLock(LockOverlay.Mode mode,Runnable done,Runnable cancel){
         if(activeLock!=null)return;
         activeLock=LockOverlay.show(this,mode,()->{activeLock=null;done.run();},()->{activeLock=null;cancel.run();});
@@ -167,6 +169,7 @@ public final class MainActivity extends Activity {
             ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setVerticalScrollBarEnabled(false);scroll.setClipToPadding(false);body=col();body.setPadding(dp(14),dp(12),dp(14),dp(14));scroll.addView(body);
             if(home&&tab==TAB_FUNDS){fundScreens.pull=new PullRefreshLayout(this,scroll,this::refreshFunds);root.addView(fundScreens.pull,new LinearLayout.LayoutParams(-1,0,1));}
             else if(page.equals("watch_detail")){watchScreens.pull=new PullRefreshLayout(this,scroll,watchScreens::refreshDetail);root.addView(watchScreens.pull,new LinearLayout.LayoutParams(-1,0,1));}
+            else if(page.equals("fund_watchlist")){watchScreens.pull=new PullRefreshLayout(this,scroll,watchScreens::refresh);root.addView(watchScreens.pull,new LinearLayout.LayoutParams(-1,0,1));}
             else root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         }
         if(!home)subpage();else homePage();
@@ -576,7 +579,7 @@ public final class MainActivity extends Activity {
     }
     /** One collapsible group. Returns the container its rows are added to. */
     LinearLayout group(String key,String title,String summary){
-        LinearLayout c=card(body);c.setPadding(dp(16),0,dp(16),0);c.setContentDescription("分组"+title);
+        LinearLayout c=card(body);c.setBackground(Ui.round(Ui.ACCENT_TINT,dp(18)));c.setPadding(dp(16),0,dp(16),0);c.setContentDescription("分组"+title);
         LinearLayout head=row();head.setMinimumHeight(dp(58));head.setBackground(ripple(Ui.ACCENT_TINT,16));
         LinearLayout names=col();names.addView(text(title,15.5f,INK,true));if(summary!=null){gap(names,4);names.addView(text(summary,11.5f,MUTED,false));}weight(head,names);
         Chevron arrow=new Chevron(this);arrow.setRotation(openSections.contains(key)?90:0);head.addView(arrow,new LinearLayout.LayoutParams(dp(22),dp(22)));
@@ -593,6 +596,9 @@ public final class MainActivity extends Activity {
         return content;
     }
     void rowIn(LinearLayout content,String title,String value,Runnable click){content.addView(ui.divider());LinearLayout r=ui.listRow(content,title,value,click);r.setMinimumHeight(dp(52));r.setContentDescription(title);}
+    LinearLayout nestedGroup(LinearLayout parent,String key,String title){
+        LinearLayout card=card(parent),head=row(),content=col();card.setBackground(Ui.round(Ui.ACCENT_TINT,dp(14)));head.setMinimumHeight(dp(50));head.setBackground(Ui.round(Ui.ACCENT_SOFT,dp(10)));weight(head,text(title,14,INK,true));Chevron arrow=new Chevron(this);head.addView(arrow,new LinearLayout.LayoutParams(dp(20),dp(20)));boolean open=openSections.contains(key);content.setVisibility(open?View.VISIBLE:View.GONE);arrow.open(open);head.setOnClickListener(v->{boolean show=content.getVisibility()!=View.VISIBLE;content.setVisibility(show?View.VISIBLE:View.GONE);arrow.open(show);if(show)openSections.add(key);else openSections.remove(key);});card.addView(head);card.addView(content);return content;
+    }
     void settingsPage(){
         LinearLayout titleRow=row();titleRow.setPadding(dp(4),0,0,dp(12));titleRow.addView(text("设置",24,INK,true));body.addView(titleRow);
         LinearLayout notify=group("notify","更新与通知","固定更新日期、提醒、基金通知");
@@ -627,17 +633,18 @@ public final class MainActivity extends Activity {
         LinearLayout labels=group("labels","标签与历史","收入标签、历史月支出");
         rowIn(labels,"管理收入标签",null,this::manageCategories);
         rowIn(labels,"历史月支出",data.history.isEmpty()?null:data.history.size()+" 个月",()->go("history"));
-        LinearLayout records=group("records","收支报销数据管理",".xlsx格式数据导入/导出");
+        LinearLayout dataManagement=group("dataManagement","数据导入及导出备份管理",null);
+        LinearLayout records=nestedGroup(dataManagement,"records","收支报销数据管理");
         rowIn(records,"导入收支报销",null,()->pickFile(102));
         rowIn(records,"导出收支报销",null,this::exportRecordsDialog);
         rowIn(records,"下载收支报销模板",null,()->createFile(103,XLSX,"Yueji-收支报销模板.xlsx"));
         rowIn(records,"导入数据管理",null,()->{openImportBatch=-1;go("import_records");});
-        LinearLayout funds=group("funds","基金数据管理",".xlsx格式数据导入/导出");
+        LinearLayout funds=nestedGroup(dataManagement,"funds","基金数据管理");
         rowIn(funds,"导入基金数据",null,()->pickFile(105));
         rowIn(funds,"导出基金数据",null,this::exportFunds);
         rowIn(funds,"下载基金模板",null,()->createFile(107,XLSX,"Yueji-基金模板.xlsx"));
         rowIn(funds,"导入数据管理",null,()->{openImportBatch=-1;go("import_funds");});
-        LinearLayout backup=group("backup","备份与恢复","完整 JSON 备份");
+        LinearLayout backup=nestedGroup(dataManagement,"backup","备份与恢复");
         rowIn(backup,"导出完整备份",null,()->createFile(100,"application/json","Yueji-"+LocalDate.now()+".json"));
         rowIn(backup,"恢复 JSON 备份",null,()->pickFile(101));
         TradingCalendar calendar=fundScreens.calendar();int thisYear=FundEngine.now().getYear();
@@ -655,11 +662,11 @@ public final class MainActivity extends Activity {
         appearance.addView(colors);gap(appearance,12);
         // The optional lock stays last; it must not displace data and appearance tools.
         View securityCard=(View)security.getParent();body.removeView(securityCard);body.addView(securityCard);
-        LinearLayout about=card(body);about.addView(text("Yueji  "+versionName(),15.5f,INK,true));gap(about,8);
-        gap(about,10);LinearLayout github=row();ImageView githubIcon=new ImageView(this);githubIcon.setImageResource(R.drawable.ic_github);githubIcon.setColorFilter(Ui.INK);github.addView(githubIcon,new LinearLayout.LayoutParams(dp(22),dp(22)));github.addView(action("GitHub · risnerohman625/Yueji",()->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/risnerohman625/Yueji")))));about.addView(github);
-        about.addView(text("本地账本 · 基金数据来自东方财富公开净值，休市日历来自 holiday-cn 开源数据。\n首次更新所在月份若与最后一个历史月份相同，该月合并历史数据；否则两者分别计算。",12,MUTED,false));
+        LinearLayout help=card(body);help.addView(action("软件使用说明",()->startActivity(new Intent(this,UsageGuideActivity.class))));
+        updates().about(card(body));
+        for(int i=0;i<body.getChildCount();i++){View child=body.getChildAt(i);if(child.getLayoutParams() instanceof LinearLayout.LayoutParams){LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)child.getLayoutParams();lp.bottomMargin=Math.min(lp.bottomMargin,dp(8));child.setLayoutParams(lp);}}
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.1";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.2";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}

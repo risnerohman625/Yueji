@@ -16,10 +16,7 @@ final class FundDetailRecognition {
         String name=field(lines,"买入产品"),amount=field(lines,"买入金额"),fee=field(lines,"手续费"),time=field(lines,"买入时间");
         name=name.replaceAll("[>›〉》]+$","").trim();
         FundRecognition.Row row=new FundRecognition.Row();List<String> missing=new ArrayList<>();
-        row.name=name;
-        Set<String> codes=new LinkedHashSet<>();
-        for(FundRecognition.Line line:raw){String t=labelText(line.text);if(t.contains("订单")||t.contains("金额")||t.contains("手续费"))continue;Matcher code=Pattern.compile("(?<![0-9.])([0-9]{6})(?![0-9])").matcher(t);while(code.find())codes.add(code.group(1));}
-        if(codes.size()==1)row.code=codes.iterator().next();else missing.add("六位基金代码");
+        if(name.isEmpty()||name.matches(".*(?:公司|订单号|付款方式).*"))missing.add("产品名称");else row.name=name;
         Matcher date=FundRecognition.DATE.matcher(time);
         try{
             if(!date.find())throw new DateTimeException("missing");

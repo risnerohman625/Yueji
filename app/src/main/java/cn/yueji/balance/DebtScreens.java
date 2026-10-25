@@ -26,7 +26,6 @@ final class DebtScreens {
         m.body.addView(m.text("负债记录",16,Ui.INK,true));m.gap(m.body,8);
         if(m.data.debts.isEmpty())m.card(m.body).addView(m.text("暂无负债，点击右上角记录",13,Ui.MUTED,false));
         for(DebtLedger.Loan loan:DebtLedger.sorted(m.data,today))card(loan);
-        m.card(m.body).addView(m.text("负债和还款仅在本模块记录与展示，不参与总资产计算，不自动修改账户余额或新增收入、支出。实际账户余额仍由你独立更新，原有余额差算法不变。负债和还款记录随完整JSON备份保存。",11,Ui.MUTED,false));
     }
     void card(DebtLedger.Loan loan){
         long remaining=DebtLedger.balance(loan,LocalDate.now());boolean closed=remaining==0;

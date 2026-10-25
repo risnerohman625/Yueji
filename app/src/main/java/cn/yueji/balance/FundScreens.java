@@ -72,7 +72,7 @@ final class FundScreens {
         LinearLayout.LayoutParams curveParams=new LinearLayout.LayoutParams(0,m.dp(60),1);curveParams.leftMargin=m.dp(10);header.addView(new HoldingSparkline(m,FundRules.trend(totals.selected,today)),curveParams);summary.addView(header);m.gap(summary,6);
         metricRow(summary,true,new Cell("持有收益",complete?m.signed(value-cost):"待数据",complete?color(value-cost):MainActivity.INK),new Cell("持有收益率",complete?rate(value-cost,cost):"—",complete?color(value-cost):MainActivity.INK),new Cell("累计收益 ›",complete?m.signed(cumulative):"待数据",complete?color(cumulative):MainActivity.INK,"累计收益明细",v->m.go("fund_profit")));
         metricRow(summary,true,new Cell(filter==2?"本周收益":"当日收益",totals.currentKnown?m.signed(current):"待更新",current==0?MainActivity.INK:color(current)),new Cell(filter==2?"上周收益":"昨日收益",yesterdayKnown?m.signed(yesterday):"待更新",yesterdayKnown&&yesterday!=0?color(yesterday):MainActivity.INK),new Cell(filter==1?"持有基金数量":"持有产品数量",""+count,MainActivity.INK));
-        
+
         if(hidden>0||deleted>0){
             m.gap(summary,8);String note=(hidden>0?"已隐藏 "+hidden+" 只，不计入以上金额与收益":"")+(hidden>0&&deleted>0?"；":"")+(deleted>0?"已删除 "+deleted+" 只，其收益保留在累计收益中":"");
             summary.addView(m.text(note,10.5f,MainActivity.INK,false));
@@ -437,6 +437,7 @@ final class FundScreens {
     void buy(Ledger.Fund old,Ledger.FundBuy editing){buy(old,editing,0,0,0,false);}
     void buy(Ledger.Fund old,Ledger.FundBuy editing,long presetAmount,long presetFee,long presetAccount,boolean recurringRun){
         LinearLayout form=m.col();form.setPadding(m.dp(16),0,m.dp(16),m.dp(14));
+        EditText name=m.field(form,"基金名称",old==null?"":old.name,false);if(old!=null)name.setEnabled(false);
         EditText code=m.field(form,"基金代码",old==null?"":old.code,true);code.setInputType(InputType.TYPE_CLASS_NUMBER);
         if(old!=null&&editing==null)code.setEnabled(false);
         EditText amount=m.field(form,"买入金额（含手续费）",editing==null?(presetAmount>0?Ledger.decimal(presetAmount):""):Ledger.decimal(editing.amount),true);
@@ -462,7 +463,7 @@ final class FundScreens {
         }
         d.show();
         d.getButton(-1).setOnClickListener(v->{try{
-            String symbol=code.getText().toString().trim();if(!symbol.matches("[0-9]{6}"))throw new IllegalArgumentException("基金代码为6位数字");long gross=Ledger.parseMoney(amount.getText().toString(),true),charge=Ledger.parseMoney(fee.getText().toString(),false);
+            String fundName=name.getText().toString().trim();if(fundName.isEmpty())throw new IllegalArgumentException("基金名称不能为空");String symbol=code.getText().toString().trim();if(!symbol.matches("[0-9]{6}"))throw new IllegalArgumentException("基金代码为6位数字");long gross=Ledger.parseMoney(amount.getText().toString(),true),charge=Ledger.parseMoney(fee.getText().toString(),false);
             LocalDateTime selectedAt=date.at;
             if(charge>=gross)throw new IllegalArgumentException("手续费须小于买入金额");if(selectedAt.isAfter(FundEngine.now()))throw new IllegalArgumentException("买入时间不能在未来");
             for(Ledger.Fund f:m.store.load().funds)if(f.code.equals(symbol)&&f.removed())throw new IllegalArgumentException("该基金已从首页删除，请先在累计收益中恢复或永久删除");
@@ -470,6 +471,7 @@ final class FundScreens {
                 FundClient.Quote quote=null;String failure="";try{quote=FundClient.fetchHistory(symbol);}catch(Exception e){failure=NetworkIo.message(e);}
                 FundClient.Quote result=quote;String problem=failure;m.runOnUiThread(()->{if(m.isDestroyed()||m.isFinishing()||!d.isShowing())return;try{
                     Ledger.Data candidate=LedgerStore.decode(LedgerStore.encode(m.store.load()));
+                    if(result!=null&&!FundDetailRecognition.exact(fundName,result.name))throw new IllegalArgumentException("基金名称与代码不一致，请核对官方名称："+result.name);
                     boolean linkBuy=sourceAccount.getSelectedItemPosition()>0;
                     long buyAccountId=linkBuy?accounts.get(sourceAccount.getSelectedItemPosition()-1).id:0;
                     Ledger.Fund target=FundTransactions.save(candidate,old==null?0:old.id,editing==null?0:editing.id,symbol,gross,charge,selectedAt,result,problem,false,linkBuy,buyAccountId,calendar);

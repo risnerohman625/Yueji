@@ -16,11 +16,11 @@ public class V462RulesTest {
     ImportJournal.Batch changeMonth(Ledger.Data d,long amount){Ledger.Data before=clone(d);month(d,amount);return ImportJournal.record(before,d,ImportJournal.RECORDS,"表格导入");}
     @Test public void splitLabelsAndOcrVariantsAreGroupedWithoutChangingProductName(){
         List<FundRecognition.Line> lines=old.lines("买人成功","买人产品 基金（LOF）a","买人金額 1,000.00元","买人时间2026-10-19 01:40","手续费0.60元");
-        FundRecognition.Row row=FundDetailRecognition.parse(lines);assertTrue(row.needsReview);assertTrue(row.problem.contains("六位基金代码"));assertEquals("基金（LOF）a",row.name);assertEquals(60,row.fee);
+        FundRecognition.Row row=FundDetailRecognition.parse(lines);assertFalse(row.needsReview);assertEquals("基金（LOF）a",row.name);assertEquals(60,row.fee);
         lines=old.lines("买入成功","手续费0.60元","买入时间2026-10-19 01:40");
         lines.add(new FundRecognition.Line("买入",10,200,70,225));lines.add(new FundRecognition.Line("产品",75,201,135,226));lines.add(new FundRecognition.Line("任意产品A",300,200,600,225));
         lines.add(new FundRecognition.Line("买入金额",10,250,140,275));lines.add(new FundRecognition.Line("1,000.00元",300,250,600,275));
-        row=FundDetailRecognition.parse(lines);assertEquals("任意产品A",row.name);assertEquals(100000,row.amount);assertTrue(row.needsReview);assertTrue(row.problem.contains("六位基金代码"));
+        row=FundDetailRecognition.parse(lines);assertEquals("任意产品A",row.name);assertEquals(100000,row.amount);assertFalse(row.needsReview);
     }
     @Test public void incompleteDetailGoesToCorrectionNotWrongScreenshot(){
         FundRecognition.Row row=FundDetailRecognition.parse(old.lines("买入成功","买入产品 新基金A","买入金额1000.00元","确认时间2026-10-20"));
