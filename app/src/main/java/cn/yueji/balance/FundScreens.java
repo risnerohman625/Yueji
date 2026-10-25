@@ -79,7 +79,7 @@ final class FundScreens {
         }
         summary.setOnClickListener(v->m.go("fund_total"));
         LinearLayout tools=m.row();TextView add=m.button("＋ 添加基金",this::addChoice);add.setMinHeight(m.dp(42));add.setTextSize(13.5f);tools.addView(add);
-        TextView watch=m.ui.link("自选",()->m.go("fund_watchlist"));watch.setPadding(m.dp(6),m.dp(10),m.dp(2),m.dp(10));watch.setTextSize(12);watch.setContentDescription("打开自选基金");tools.addView(watch);m.weight(tools,new View(m));tools.addView(m.bankScreens.filterButton());tools.addView(sortButton());m.body.addView(tools);m.gap(m.body,12);
+        TextView watch=m.ui.link("自选",()->m.go("fund_watchlist"));watch.setPadding(m.dp(16),m.dp(10),m.dp(16),m.dp(10));watch.setTextSize(14);watch.setTypeface(Ui.BOLD);watch.setBackground(Ui.roundStroke(Ui.ACCENT_TINT,Ui.ACCENT,m.dp(12),m.dp(1)));LinearLayout.LayoutParams wp=new LinearLayout.LayoutParams(-2,-2);wp.leftMargin=m.dp(12);watch.setLayoutParams(wp);watch.setContentDescription("打开自选基金");tools.addView(watch);m.weight(tools,new View(m));tools.addView(m.bankScreens.filterButton());tools.addView(sortButton());m.body.addView(tools);m.gap(m.body,12);
         if(shown==0){
             LinearLayout empty=m.card(m.body);empty.setGravity(Gravity.CENTER);empty.setPadding(m.dp(16),m.dp(30),m.dp(16),m.dp(30));
             empty.addView(m.text(deleted>0?"首页没有基金":"还没有添加基金",15,MainActivity.INK,true));m.gap(empty,8);

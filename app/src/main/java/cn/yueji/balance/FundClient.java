@@ -37,7 +37,7 @@ public final class FundClient {
         if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("网络操作已取消");
         HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();c.setConnectTimeout(6000);c.setReadTimeout(8000);
         c.setRequestProperty("Referer","https://fund.eastmoney.com/");c.setRequestProperty("User-Agent","Mozilla/5.0 Yueji/4.5.0");
-        try{if(c.getResponseCode()!=200)throw new IOException("行情服务 HTTP "+c.getResponseCode());try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("网络操作已取消");out.write(b,0,n);if(out.size()>2000000)throw new IOException("行情响应过大");}return out.toString(StandardCharsets.UTF_8.name());}}finally{c.disconnect();}
+        try{if(c.getResponseCode()!=200)throw new IOException("行情服务 HTTP "+c.getResponseCode());try(InputStream in=c.getInputStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("网络操作已取消");out.write(b,0,n);if(out.size()>2000000)throw new IOException("行情响应过大");}String encoding=StandardCharsets.UTF_8.name();String type=c.getContentType();if(type!=null&&type.toLowerCase(java.util.Locale.ROOT).matches(".*charset=(?:gb2312|gbk|gb18030).*"))encoding="GB18030";return out.toString(encoding);}}finally{c.disconnect();}
     }
     public static Quote fetch(String code)throws Exception{
         return NetworkIo.call(()->fetchNow(code));
@@ -69,10 +69,11 @@ public final class FundClient {
         for(int i=0;i<history.length();i++){
             JSONObject item=history.getJSONObject(i);
             LocalDate day=Instant.ofEpochMilli(item.getLong("x")).atZone(ZoneId.of("Asia/Shanghai")).toLocalDate();
-            if(item.isNull("y"))continue;BigDecimal value=new BigDecimal(item.getString("y"));
-            if(!day.isAfter(FundEngine.now().toLocalDate())&&value.signum()>0){
-                q.history.put(day,value);BigDecimal change=item.isNull("equityReturn")?null:new BigDecimal(item.getString("equityReturn"));if(change!=null)q.returns.put(day,change);
+            if(item.isNull("y"))continue;BigDecimal value=new BigDecimal(item.get("y").toString());
+            if(!day.isAfter(LocalDate.parse(q.date))&&value.signum()>0){
+                q.history.put(day,value);BigDecimal change=item.isNull("equityReturn")?null:new BigDecimal(item.get("equityReturn").toString());if(change!=null)q.returns.put(day,change);
                 String event=item.optString("unitMoney");
+                if(previous!=null&&!event.contains("分红")&&!event.contains("拆分")&&!event.contains("折算"))q.returns.put(day,value.divide(previous,16,java.math.RoundingMode.HALF_UP).subtract(BigDecimal.ONE).movePointRight(2));
                 if(previous!=null&&change!=null){
                     BigDecimal theoretical=previous.multiply(BigDecimal.ONE.add(change.movePointLeft(2)));
                     if(event.contains("拆分")||event.contains("折算")){BigDecimal factor=theoretical.divide(value,8,java.math.RoundingMode.HALF_UP);if(factor.signum()>0)q.splits.put(day,factor);}
@@ -109,7 +110,7 @@ public final class FundClient {
     }
     static FundProfile profile(String code,String name)throws Exception{
         if(!code.matches("[0-9]{6}"))throw new IllegalArgumentException("基金代码无效");
-        return NetworkIo.call(()->FundProfile.parse(name,get("https://fundf10.eastmoney.com/jbgk_"+code+".html"),get("https://fundf10.eastmoney.com/jjfl_"+code+".html")));
+        return NetworkIo.call(()->{String overview="",fees="";try{overview=get("https://fundf10.eastmoney.com/jbgk_"+code+".html");}catch(IOException ignored){}try{fees=get("https://fundf10.eastmoney.com/jjfl_"+code+".html");}catch(IOException ignored){}FundProfile p=FundProfile.parse(name,overview,fees);if(p.management.isEmpty())p.management=FundProfile.match(overview,"管理费率</th>\\s*<td[^>]*>(.*?)</td>");if(p.custody.isEmpty())p.custody=FundProfile.match(overview,"托管费率</th>\\s*<td[^>]*>(.*?)</td>");if(p.service.isEmpty())p.service=FundProfile.match(overview,"销售服务费率</th>\\s*<td[^>]*>(.*?)</td>");if(overview.isEmpty()&&fees.isEmpty())p.updated="";return p;});
     }
     private FundClient(){}
 }

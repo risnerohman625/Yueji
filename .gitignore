@@ -29,3 +29,8 @@ docs/validation/*
 !docs/validation/v470-package-check.json
 !docs/validation/v470-regression.txt
 !docs/validation/v470-source-integrity.txt
+
+!dist/Yueji-4.7.1-debug.apk
+!dist/Yueji-4.7.1-debug.apk.sha256
+!docs/Yueji-4.7.1-修改说明.md
+!docs/validation/v471-*.txt

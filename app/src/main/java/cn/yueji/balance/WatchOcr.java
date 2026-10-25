@@ -18,7 +18,7 @@ final class WatchOcr {
                 if(value.matches("[0-9\\s.,+%/:：-]+")||value.contains("%")||value.contains("基金名称")||value.contains("全部")||value.contains("历史胜率")||value.contains("规模小")||value.contains("自选"))continue;
                 if(value.matches(".*[\\p{IsHan}A-Za-z].*"))name.append(value.replaceAll("\\s+",""));
             }
-            rows.add(new Row(symbol,name.toString()));previous=anchor.bottom+1;
+            rows.add(new Row(symbol,""));previous=anchor.bottom+1;
         }
         return rows;
     }

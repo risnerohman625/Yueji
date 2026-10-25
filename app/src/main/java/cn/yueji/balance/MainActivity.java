@@ -160,12 +160,13 @@ public final class MainActivity extends Activity {
         });root.requestApplyInsets();
         boolean home=page.isEmpty();
         // Assets, income & expense and the fund detail pages fit one screen: their cards share the height instead of scrolling.
-        boolean fixed=home&&(tab==TAB_ACCOUNTS||tab==TAB_FLOW)||page.equals("fund_detail")||page.equals("fund_total")||page.equals("bank_detail")||page.equals("watch_detail")&&!watchScreens.rulesExpanded;
+        boolean fixed=home&&(tab==TAB_ACCOUNTS||tab==TAB_FLOW)||page.equals("fund_detail")||page.equals("fund_total")||page.equals("bank_detail");
         if(fixed){
             body=col();body.setPadding(dp(14),dp(10),dp(14),dp(8));root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         }else{
             ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setVerticalScrollBarEnabled(false);scroll.setClipToPadding(false);body=col();body.setPadding(dp(14),dp(12),dp(14),dp(14));scroll.addView(body);
             if(home&&tab==TAB_FUNDS){fundScreens.pull=new PullRefreshLayout(this,scroll,this::refreshFunds);root.addView(fundScreens.pull,new LinearLayout.LayoutParams(-1,0,1));}
+            else if(page.equals("watch_detail")){watchScreens.pull=new PullRefreshLayout(this,scroll,watchScreens::refreshDetail);root.addView(watchScreens.pull,new LinearLayout.LayoutParams(-1,0,1));}
             else root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         }
         if(!home)subpage();else homePage();
@@ -576,11 +577,11 @@ public final class MainActivity extends Activity {
     /** One collapsible group. Returns the container its rows are added to. */
     LinearLayout group(String key,String title,String summary){
         LinearLayout c=card(body);c.setPadding(dp(16),0,dp(16),0);c.setContentDescription("分组"+title);
-        LinearLayout head=row();head.setMinimumHeight(dp(58));head.setBackground(ripple(Color.TRANSPARENT,16));
+        LinearLayout head=row();head.setMinimumHeight(dp(58));head.setBackground(ripple(Ui.ACCENT_TINT,16));
         LinearLayout names=col();names.addView(text(title,15.5f,INK,true));if(summary!=null){gap(names,4);names.addView(text(summary,11.5f,MUTED,false));}weight(head,names);
         Chevron arrow=new Chevron(this);arrow.setRotation(openSections.contains(key)?90:0);head.addView(arrow,new LinearLayout.LayoutParams(dp(22),dp(22)));
         head.setPadding(0,dp(10),0,dp(10));c.addView(head,new LinearLayout.LayoutParams(-1,-2));
-        LinearLayout content=col();content.setVisibility(openSections.contains(key)?View.VISIBLE:View.GONE);c.addView(content);
+        LinearLayout content=col();View accentLine=new View(this);accentLine.setBackgroundColor(Ui.ACCENT_SOFT);content.addView(accentLine,new LinearLayout.LayoutParams(-1,dp(2)));content.setVisibility(openSections.contains(key)?View.VISIBLE:View.GONE);c.addView(content);
         sectionContents.put(key,content);sectionArrows.put(key,arrow);
         head.setOnClickListener(v->{
             boolean show=content.getVisibility()!=View.VISIBLE;openSections.clear();
@@ -655,10 +656,10 @@ public final class MainActivity extends Activity {
         // The optional lock stays last; it must not displace data and appearance tools.
         View securityCard=(View)security.getParent();body.removeView(securityCard);body.addView(securityCard);
         LinearLayout about=card(body);about.addView(text("Yueji  "+versionName(),15.5f,INK,true));gap(about,8);
+        gap(about,10);LinearLayout github=row();ImageView githubIcon=new ImageView(this);githubIcon.setImageResource(R.drawable.ic_github);githubIcon.setColorFilter(Ui.INK);github.addView(githubIcon,new LinearLayout.LayoutParams(dp(22),dp(22)));github.addView(action("GitHub · risnerohman625/Yueji",()->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/risnerohman625/Yueji")))));about.addView(github);
         about.addView(text("本地账本 · 基金数据来自东方财富公开净值，休市日历来自 holiday-cn 开源数据。\n首次更新所在月份若与最后一个历史月份相同，该月合并历史数据；否则两者分别计算。",12,MUTED,false));
-        gap(about,10);about.addView(action("GitHub · risnerohman625/Yueji",()->startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/risnerohman625/Yueji")))));
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.0";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.1";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}
