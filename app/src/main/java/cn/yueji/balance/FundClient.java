@@ -47,11 +47,14 @@ public final class FundClient {
         JSONObject search=new JSONObject(get("https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key="+code));JSONArray found=search.getJSONArray("Datas");JSONObject exact=null;
         for(int i=0;i<found.length();i++){JSONObject o=found.getJSONObject(i);if(code.equals(o.optString("CODE"))&&o.has("FundBaseInfo")&&!o.isNull("FundBaseInfo")){exact=o;break;}}
         if(exact==null)throw new IllegalArgumentException("未找到该公募基金");
+        return fetchNav(code,exact.getString("NAME"),exact.getJSONObject("FundBaseInfo").optString("FTYPE"));
+    }
+    private static Quote fetchNav(String code,String name,String type)throws Exception{
         JSONObject response=new JSONObject(get("https://api.fund.eastmoney.com/f10/lsjz?fundCode="+code+"&pageIndex=1&pageSize=2"));
         JSONArray list=response.getJSONObject("Data").getJSONArray("LSJZList");if(list.length()<2)throw new IOException("净值数据不足");
-        Quote q=new Quote();q.code=code;q.name=exact.getString("NAME");q.fundType=exact.getJSONObject("FundBaseInfo").optString("FTYPE");q.date=list.getJSONObject(0).getString("FSRQ");
+        Quote q=new Quote();q.code=code;q.name=name;q.fundType=type;q.date=list.getJSONObject(0).getString("FSRQ");
         q.nav=new BigDecimal(list.getJSONObject(0).getString("DWJZ"));q.previous=new BigDecimal(list.getJSONObject(1).getString("DWJZ"));
-        if(q.nav.signum()<=0||q.previous.signum()<=0||exact.getJSONObject("FundBaseInfo").optString("FTYPE").contains("货币"))throw new IllegalArgumentException("暂不支持货币基金或无单位净值产品");
+        if(q.nav.signum()<=0||q.previous.signum()<=0||type.contains("货币"))throw new IllegalArgumentException("暂不支持货币基金或无单位净值产品");
         java.time.LocalDate date=java.time.LocalDate.parse(q.date);
         if(date.isAfter(FundEngine.now().toLocalDate()))throw new IOException("行情日期异常");
         return q;
@@ -61,6 +64,15 @@ public final class FundClient {
     }
     private static Quote fetchHistoryNow(String code)throws Exception{
         Quote q=fetchNow(code);
+        return history(q);
+    }
+    /** A previously verified identity needs NAV/history refresh only, never another name search. */
+    public static Quote fetchHistoryKnown(String code,String name,String type)throws Exception{
+        if(!code.matches("[0-9]{6}")||name==null||name.trim().isEmpty())throw new IllegalArgumentException("基金身份无效");
+        return NetworkIo.call(()->history(fetchNav(code,name,type)));
+    }
+    private static Quote history(Quote q)throws Exception{
+        String code=q.code;
         String source=get("https://fund.eastmoney.com/pingzhongdata/"+code+".js?v="+System.currentTimeMillis());
         Matcher match=Pattern.compile("var\\s+Data_netWorthTrend\\s*=\\s*(\\[.*?\\]);",Pattern.DOTALL).matcher(source);
         if(!match.find())throw new IOException("历史净值暂不可用");
@@ -94,14 +106,14 @@ public final class FundClient {
         LedgerStore store=new LedgerStore(context);
         try{
             String problem=null;
-            Ledger.Data initial=store.load();
+            Ledger.Data initial;long epoch;synchronized(LedgerStore.class){initial=store.load();epoch=LedgerStore.epoch();}
             TradingCalendar calendar=new TradingCalendar();for(int year=2010;year<=FundEngine.now().toLocalDate().getYear()+1;year++)calendar.load(context,year);
             for(Ledger.Fund f:initial.funds){
-                if(marketHoursOnly&&!MarketSession.open(calendar,FundEngine.now()))break;
+                if(LedgerStore.epoch()!=epoch||marketHoursOnly&&!MarketSession.open(calendar,FundEngine.now()))break;
                 if(f.removed())continue;
                 Quote q=null;String error="";boolean stop=false;
                 try{q=fetchHistory(f.code);}catch(Exception e){error=NetworkIo.message(e);if(problem==null)problem=error;stop=NetworkIo.connectivity(e);}
-                store.updateFundMarket(f.id,f.code,q,error,calendar);
+                store.updateFundMarket(f.id,f.code,q,error,calendar,epoch);
                 if(stop||Thread.currentThread().isInterrupted()||marketHoursOnly&&!MarketSession.open(calendar,FundEngine.now()))break;
             }
             FundNotifications.publish(context,store.load());

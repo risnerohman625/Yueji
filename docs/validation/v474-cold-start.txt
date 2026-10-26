@@ -1,0 +1,15 @@
+Emulator-only cold-start validation; no app data was cleared.
+Starting: Intent { cmp=cn.yueji.balance/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: cn.yueji.balance/.MainActivity
+TotalTime: 1585
+WaitTime: 1587
+Complete
+Starting: Intent { cmp=cn.yueji.balance/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: cn.yueji.balance/.MainActivity
+TotalTime: 1582
+WaitTime: 1635
+Complete

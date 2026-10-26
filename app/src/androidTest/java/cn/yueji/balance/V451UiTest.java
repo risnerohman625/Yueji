@@ -63,52 +63,10 @@ public class V451UiTest {
             assertEquals(Long.valueOf(0),chart.first[0]);assertFalse(chart.known(0));assertTrue(chart.known(9));assertEquals(Long.valueOf(100000),chart.first[9]);
         });shot("v451-month-complete-curve.png");
     }
-    @Test public void addFundHasExactlyManualAndRecognitionChoices(){
-        t.start(base());t.ui(()->{t.app.openTab(MainActivity.TAB_FUNDS);t.app.fundScreens.addChoice();});
-        assertTrue(t.device.hasObject(By.text("手动输入")));assertTrue(t.device.hasObject(By.text("自动识别")));
-        assertTrue(t.device.hasObject(By.text("添加银行理财")));t.device.findObject(By.text("手动输入")).click();
-        assertTrue(t.device.wait(Until.hasObject(By.desc("基金代码")),3000));t.device.pressBack();
-    }
-    @Test public void recognitionPreviewDefaultsToAllSelectedAndEditsStayADraft(){
-        t.start(base());t.ui(()->{
-            FundRecognition.Row row=new FundRecognition.Row();row.name="博时智臻纯债债券A";row.amount=100000;row.at=LocalDateTime.of(2026,10,19,1,54);
-            t.app.fundScreenshot.rows.add(row);t.app.go("fund_scan_preview");
-            CheckBox check=(CheckBox)h.desc(t.app.body,"选择识别记录0");assertTrue(check.isChecked());
-            assertTrue(t.store.load().funds.isEmpty());t.findText(t.app.body,"完成导入").performClick();
-        });
-        assertTrue(t.device.wait(Until.hasObject(By.textContains("名称、代码及买入字段")),3000));t.device.findObject(By.text("知道了")).click();
-        t.ui(()->t.findText(t.app.body,"编辑").performClick());
-        t.device.findObject(By.desc("识别基金代码")).setText("006947");
-        assertTrue(t.device.hasObject(By.text("联网核验并更新")));t.device.findObject(By.text("取消")).click();
-        t.ui(()->assertTrue(t.store.load().funds.isEmpty()));
-        shot("v451-recognition-preview.png");
-        t.ui(()->{t.findText(t.app.body,"取消导入").performClick();assertTrue(t.store.load().funds.isEmpty());});
-    }
-    @Test public void screenshotDraftAndMonthNavigationSurviveSavedState(){
-        t.start(base());t.ui(()->{
-            FundRecognition.Row row=new FundRecognition.Row();row.name="基金A";row.code="000001";row.amount=10000;row.at=LocalDateTime.of(2026,10,10,10,0);row.selected=false;
-            t.app.fundScreenshot.rows.add(row);Bundle saved=t.app.fundScreenshot.save();FundScreenshot restored=new FundScreenshot(t.app);restored.restore(saved);
-            assertEquals(1,restored.rows.size());assertFalse(restored.rows.get(0).selected);assertEquals("000001",restored.rows.get(0).code);
-        });
-    }
-    @Test public void realProvidedScreenshotRecognizesOpenPurchasesAndExcludesClosedTrades()throws Exception{
-        t.start(base());File screenshot=new File(t.context.getCacheDir(),"recognition-test.jpg");
-        try(InputStream in=InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("fund-transactions-example.jpg");OutputStream out=new FileOutputStream(screenshot)){
-            byte[] buffer=new byte[8192];int count;while((count=in.read(buffer))!=-1)out.write(buffer,0,count);
-        }
-        CountDownLatch done=new CountDownLatch(1);AtomicReference<List<FundRecognition.Line>> lines=new AtomicReference<>();AtomicReference<Exception> failed=new AtomicReference<>();
-        t.ui(()->ScreenshotOcr.recognize(t.context,Uri.fromFile(screenshot),result->{lines.set(result);done.countDown();},error->{failed.set(error);done.countDown();}));
-        assertTrue("bundled OCR finishes",done.await(45,TimeUnit.SECONDS));if(failed.get()!=null)throw failed.get();
-        try(PrintWriter log=new PrintWriter(new File(t.dir,"ocr-lines.txt"),"UTF-8")){for(FundRecognition.Line line:lines.get())log.println(line.top+","+line.left+": "+line.text);}
-        FundRecognition.Result parsed=FundRecognition.parse(lines.get());
-        try(PrintWriter log=new PrintWriter(new File(t.dir,"ocr-results.txt"),"UTF-8")){for(FundRecognition.Row row:parsed.rows)log.println(row.name+" | "+row.amount+" | "+row.at);log.println("excluded="+parsed.excluded);}
-        assertEquals("the sample contains six open purchases",6,parsed.rows.size());assertEquals(3,parsed.excluded);
-        long sum=0;for(FundRecognition.Row row:parsed.rows){sum+=row.amount;assertNotNull(row.name,row.at);assertFalse(row.name.isEmpty());}
-        assertEquals(510000,sum);assertTrue(parsed.rows.stream().anyMatch(row->row.amount==10000&&row.name.contains("白银")));
-        assertTrue(screenshot.delete());
-        t.ui(()->{t.app.fundScreenshot.rows=parsed.rows;t.app.fundScreenshot.excluded=parsed.excluded;t.app.go("fund_scan_preview");});
-        shot("v451-real-screenshot-preview.png");
-    }
+
+
+
+
     @Test public void fundNameSearchReturnsOnlyExplicitCandidates()throws Exception{
         List<FundClient.Match> matches=FundClient.search("国投瑞银白银期货(LOF)A");assertFalse(matches.isEmpty());
         assertTrue(matches.stream().anyMatch(match->match.code.equals("161226")));for(FundClient.Match match:matches)assertTrue(match.code.matches("[0-9]{6}"));

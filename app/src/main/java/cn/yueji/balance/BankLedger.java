@@ -87,9 +87,9 @@ final class BankLedger {
         Product p=id==0?null:find(data,id);if(id!=0&&(p==null||p.removed()))throw new IllegalArgumentException("产品已移除，请先恢复");
         if(p==null){p=new Product();p.id=data.nextId();data.banks.add(p);}
         Observation prior=latest(p);String name=draft.name.trim();int segment=segment(p);
-        boolean changed=prior!=null&&!FundRecognition.normalize(prior.name).equals(FundRecognition.normalize(name));
-        if(prior!=null&&draft.at.equals(prior.at)&&changed)throw new IllegalArgumentException("产品变更时间须晚于上一条截图记录");
-        if(prior!=null&&draft.at.isBefore(prior.at))throw new IllegalArgumentException("更新不能早于上一张已确认截图；请到记录中修正");
+        boolean changed=prior!=null&&!normalizeName(prior.name).equals(normalizeName(name));
+        if(prior!=null&&draft.at.equals(prior.at)&&changed)throw new IllegalArgumentException("产品变更时间须晚于上一条数据记录");
+        if(prior!=null&&draft.at.isBefore(prior.at))throw new IllegalArgumentException("更新不能早于上一张已确认数据；请到记录中修正");
         if(changed&&!productChange)throw new IllegalArgumentException("产品名称发生变化，请核对后确认产品变更");
         if(changed){
             Event event=new Event();event.id=data.nextId();event.kind="CHANGE";event.at=draft.at;event.segment=segment;
@@ -122,7 +122,7 @@ final class BankLedger {
         if(p.id<=0||p.name.trim().isEmpty()||p.name.length()>100||p.tag.length()>12||p.observations.isEmpty()||p.observations.size()>5000||p.events.size()>5000)throw new IllegalArgumentException("银行理财记录无效");
         LocalDateTime last=null;Set<Long> ids=new HashSet<>();
         for(Observation o:p.observations){
-            if(o.id<=0||!ids.add(o.id)||o.balance<0||o.balance>Ledger.MAX_MONEY||o.name.trim().isEmpty()||o.segment<0||o.at==null||o.at.isAfter(FundEngine.now())||last!=null&&o.at.isBefore(last)||o.weekStart==null||!o.weekStart.equals(monday(o.reportDate==null?o.at.toLocalDate():o.reportDate)))throw new IllegalArgumentException("银行理财截图观测无效");
+            if(o.id<=0||!ids.add(o.id)||o.balance<0||o.balance>Ledger.MAX_MONEY||o.name.trim().isEmpty()||o.segment<0||o.at==null||o.at.isAfter(FundEngine.now())||last!=null&&o.at.isBefore(last)||o.weekStart==null||!o.weekStart.equals(monday(o.reportDate==null?o.at.toLocalDate():o.reportDate)))throw new IllegalArgumentException("银行理财数据观测无效");
             for(Long value:new Long[]{o.weekly,o.cumulative})if(value!=null&&(value>Ledger.MAX_MONEY||value< -Ledger.MAX_MONEY))throw new IllegalArgumentException("银行理财收益超出范围");
             last=o.at;
             for(Map.Entry<LocalDate,Long> day:o.daily.entrySet())if(day.getKey().isAfter(FundEngine.now().toLocalDate())||day.getKey().getYear()<2000||day.getValue()>Ledger.MAX_MONEY||day.getValue()< -Ledger.MAX_MONEY)throw new IllegalArgumentException("银行理财日收益无效");
@@ -131,5 +131,6 @@ final class BankLedger {
         for(long basis:p.bases.values())if(basis<0||basis>Ledger.MAX_MONEY)throw new IllegalArgumentException("银行理财本金无效");
         for(Event e:p.events)if(e.soldCost!=null&&(e.soldCost<0||e.soldCost>Ledger.MAX_MONEY))throw new IllegalArgumentException("银行理财卖出成本无效");
     }
+    static String normalizeName(String name){return name.replaceAll("\\s+","").replace('（','(').replace('）',')').replace("基金","").toUpperCase(Locale.ROOT);}
     private BankLedger(){}
 }

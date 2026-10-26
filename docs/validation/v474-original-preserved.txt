@@ -1,0 +1,9 @@
+Original directory: YuejiV4.7.3; original version remains 4.7.3/build22.
+No writes were made to the original directory. All changes are in the full sibling copy YuejiV4.7.4.
+The six pre-existing working-tree line-ending changes remain unchanged and match the new copy.
+ M app/src/main/res/drawable/ic_stat.xml
+ M app/src/main/res/drawable/ic_stat_bloom.xml
+ M app/src/main/res/drawable/ic_stat_classic.xml
+ M app/src/main/res/drawable/ic_stat_moon.xml
+ M app/src/main/res/drawable/ic_stat_petals.xml
+ M gradlew.bat

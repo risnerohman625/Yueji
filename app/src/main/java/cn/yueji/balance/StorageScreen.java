@@ -34,8 +34,8 @@ final class StorageScreen {
         m.metric(details,"系统运行缓存",size(bytes(m.getCodeCacheDir())),Ui.MUTED);
         details.addView(m.text("这些是不同统计口径，部分项目存在包含关系，不应逐项相加。系统“应用”还可能包含编译优化文件、页对齐和安装元数据，运行后增长不等于账本变大。",11,Ui.MUTED,false));
         LinearLayout explanation=m.card(m.body);
-        explanation.addView(m.text("安装包压缩的是下载/分发大小；Android安装时会解压当前CPU使用的OCR本机库，运行时也可能生成编译优化文件。历史净值会作为有效账本数据保存以绘制收益，不能当缓存随意删除。",12,Ui.INK,false));
-        explanation.addView(m.text("清理只删除cache目录内的临时文件，不清除数据库、基金历史、OCR模型、图标、JSON或系统编译缓存。系统设置中的“清除数据”会删除账本，请勿把它当清缓存。",11,Ui.MUTED,false));
+        explanation.addView(m.text("本版已移除全部截图识别模块和模型。Android运行时仍可能生成编译优化文件。历史净值会作为有效账本数据保存以绘制收益，不能当缓存随意删除。",12,Ui.INK,false));
+        explanation.addView(m.text("清理只删除cache目录内的临时文件，不清除数据库、基金历史、图标、JSON或系统编译缓存。系统设置中的“清除数据”会删除账本，请勿把它当清缓存。",11,Ui.MUTED,false));
         m.body.addView(m.action("清理临时缓存",()->AppIcons.dialog(m).setTitle("清理临时缓存？").setMessage("不会删除账本、账户、基金、负债或导入记录。").setNegativeButton("取消",null).setPositiveButton("清理",(d,w)->{
             try{long before=cacheBytes(m);clean(m.getCacheDir());File[] dirs=m.getExternalCacheDirs();if(dirs!=null)for(File dir:dirs)clean(dir);m.render();m.toast("已清理 "+size(Math.max(0,before-cacheBytes(m))));}catch(Exception e){m.error(e);}
         }).show()));

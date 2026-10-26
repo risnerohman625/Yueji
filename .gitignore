@@ -48,3 +48,8 @@ docs/validation/*
 # Local agent instructions: keep locally, never include in new commits.
 [Aa][Gg][Ee][Nn][Tt].[Mm][Dd]
 [Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]
+
+!dist/Yueji-4.7.4-debug.apk
+!dist/Yueji-4.7.4-debug.apk.sha256
+!docs/Yueji-4.7.4-修改说明.md
+!docs/validation/v474-*.txt

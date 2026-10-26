@@ -40,12 +40,13 @@ public final class MainActivity extends Activity {
     final Map<String,String> searches=new HashMap<>(),monthFilters=new HashMap<>();
     final Map<String,LinearLayout> sectionContents=new HashMap<>();
     final Map<String,Chevron> sectionArrows=new HashMap<>();
+    final Map<String,LinearLayout> nestedContents=new HashMap<>(),nestedParents=new HashMap<>();
+    final Map<String,Chevron> nestedArrows=new HashMap<>();
     FormDraft formDraft;
     LockOverlay activeLock;
     AlertDialog networkDialog;
     AlertDialog iconChooser;
     YearMonth monthFocus=YearMonth.now();
-    FundScreenshot fundScreenshot; ScreenshotCleanup screenshotCleanup;
     BankScreens bankScreens;
     long openImportBatch=-1;
     DebtScreens debtScreens;
@@ -87,6 +88,7 @@ public final class MainActivity extends Activity {
         TextView amount=fit(text(value,18,color,true),18,8);amount.setTag("bounded-number");LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(30),.58f);p.leftMargin=dp(6);r.addView(amount,p);c.addView(r);gap(c,8);
     }
     Ledger.Data copy(){return LedgerStore.decode(LedgerStore.encode(data));}
+    void commit(Ledger.Data candidate,long expectedEpoch){synchronized(LedgerStore.class){if(LedgerStore.epoch()!=expectedEpoch)throw new IllegalArgumentException("账本已恢复，本次旧任务未写入，请重新操作");commit(candidate);}}
     void commit(Ledger.Data candidate){
         synchronized(LedgerStore.class){
             Ledger.Data newest=store.load();
@@ -116,9 +118,9 @@ public final class MainActivity extends Activity {
     }
     void saveTabOrder(int[] order){getPreferences(0).edit().putString("tabOrder",order[0]+","+order[1]+","+order[2]).apply();}
     @Override public void onCreate(Bundle b){
-        super.onCreate(b);if(b==null)AppIcons.beginProcess(this);AppIcons.sync(this);AppIcons.apply(this);ui=new Ui(this);store=new LedgerStore(this);fundScreens=new FundScreens(this);watchScreens=new WatchlistScreens(this);labelScreens=new LabelScreens(this);fundScreenshot=new FundScreenshot(this);bankScreens=new BankScreens(this);debtScreens=new DebtScreens(this);screenshotCleanup=new ScreenshotCleanup(this);getSystemService(NotificationManager.class).cancel(4260);getSharedPreferences("bank-capture",0).edit().clear().apply();tab=tabOrder()[0];
-        if(b!=null){assetTab=b.getInt("assetTab",2);assetPeriod=b.getInt("assetPeriod",0);bankScreens.restore(b.getBundle("bankScreens"));screenshotCleanup.restore(b.getBundle("screenshotCleanup"));}
-        if(b!=null){fundScreenshot.restore(b.getBundle("fundScreenshot"));String savedMonth=b.getString("monthFocus");if(savedMonth!=null)monthFocus=YearMonth.parse(savedMonth);}
+        super.onCreate(b);if(b==null)AppIcons.beginProcess(this);AppIcons.sync(this);AppIcons.apply(this);ui=new Ui(this);store=new LedgerStore(this);fundScreens=new FundScreens(this);watchScreens=new WatchlistScreens(this);labelScreens=new LabelScreens(this);bankScreens=new BankScreens(this);debtScreens=new DebtScreens(this);getSystemService(NotificationManager.class).cancel(4260);getSharedPreferences("bank-capture",0).edit().clear().apply();tab=tabOrder()[0];
+        if(b!=null){assetTab=b.getInt("assetTab",2);assetPeriod=b.getInt("assetPeriod",0);bankScreens.restore(b.getBundle("bankScreens"));}
+        if(b!=null){String savedMonth=b.getString("monthFocus");if(savedMonth!=null)monthFocus=YearMonth.parse(savedMonth);}
         if(b!=null){tab=b.getInt("tab");year=b.getInt("year",year);flowTab=b.getInt("flowTab");sortAmount=b.getBoolean("sortAmount");page=b.getString("page","");accountId=b.getLong("account");fundFocus=b.getLong("fund");categoryFocus=b.getString("category","");String[] stack=b.getStringArray("backStack");if(stack!=null)backStack.addAll(Arrays.asList(stack));String[] sections=b.getStringArray("sections");if(sections!=null)openSections.addAll(Arrays.asList(sections));Ledger.Data saved=store.load();for(Ledger.Entry e:saved.entries)if(e.id==b.getLong("editingEntry"))entryEditing=e;for(Ledger.Snapshot s:saved.snapshots)if(s.id==b.getLong("editingSnapshot"))snapshotEditing=s;}
         if(b!=null){detailYear=b.getInt("detailYear",detailYear);yearKind=b.getInt("yearKind",0);Bundle draft=b.getBundle("formDraft");if(draft!=null)formDraft=new FormDraft(draft);Bundle searchesSaved=b.getBundle("searches"),monthsSaved=b.getBundle("monthFilters");if(searchesSaved!=null)for(String k:searchesSaved.keySet())searches.put(k,searchesSaved.getString(k,""));if(monthsSaved!=null)for(String k:monthsSaved.keySet())monthFilters.put(k,monthsSaved.getString(k,""));}
         if(b!=null){reimburseFilter=b.getInt("reimburseFilter");labelScreens.restoreState(b.getBundle("labelEditor"));openImportBatch=b.getLong("openImportBatch",-1);fundPageVisited=b.getBoolean("fundPageVisited");}
@@ -130,7 +132,7 @@ public final class MainActivity extends Activity {
             getPreferences(0).edit().putBoolean("asked",true).apply();requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},4);
         }
     }
-    @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);b.putString("watchFocus",watchFocus);b.putString("watchGroup",watchScreens.activeGroup);b.putBoolean("watchRules",watchScreens.rulesExpanded);b.putInt("assetTab",assetTab);b.putInt("assetPeriod",assetPeriod);b.putBoolean("fundPageVisited",fundPageVisited);b.putLong("openImportBatch",openImportBatch);b.putBundle("bankScreens",bankScreens.save());b.putBundle("screenshotCleanup",screenshotCleanup.save());b.putString("monthFocus",monthFocus.toString());b.putBundle("fundScreenshot",fundScreenshot.save());b.putInt("tab",tab);b.putInt("year",year);b.putInt("flowTab",flowTab);b.putBoolean("sortAmount",sortAmount);b.putString("page",page);b.putLong("account",accountId);b.putLong("fund",fundFocus);b.putLong("editingEntry",entryEditing==null?0:entryEditing.id);b.putLong("editingSnapshot",snapshotEditing==null?0:snapshotEditing.id);b.putStringArray("backStack",backStack.toArray(new String[0]));b.putString("category",categoryFocus);b.putStringArray("sections",openSections.toArray(new String[0]));b.putInt("detailYear",detailYear);b.putInt("yearKind",yearKind);captureDraft();if(formDraft!=null)b.putBundle("formDraft",formDraft.values);Bundle sq=new Bundle(),mf=new Bundle();for(String k:searches.keySet())sq.putString(k,searches.get(k));for(String k:monthFilters.keySet())mf.putString(k,monthFilters.get(k));b.putBundle("searches",sq);b.putBundle("monthFilters",mf);b.putInt("reimburseFilter",reimburseFilter);b.putBundle("labelEditor",labelScreens.saveState());}
+    @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);b.putString("watchFocus",watchFocus);b.putString("watchGroup",watchScreens.activeGroup);b.putBoolean("watchRules",watchScreens.rulesExpanded);b.putInt("assetTab",assetTab);b.putInt("assetPeriod",assetPeriod);b.putBoolean("fundPageVisited",fundPageVisited);b.putLong("openImportBatch",openImportBatch);b.putBundle("bankScreens",bankScreens.save());b.putString("monthFocus",monthFocus.toString());b.putInt("tab",tab);b.putInt("year",year);b.putInt("flowTab",flowTab);b.putBoolean("sortAmount",sortAmount);b.putString("page",page);b.putLong("account",accountId);b.putLong("fund",fundFocus);b.putLong("editingEntry",entryEditing==null?0:entryEditing.id);b.putLong("editingSnapshot",snapshotEditing==null?0:snapshotEditing.id);b.putStringArray("backStack",backStack.toArray(new String[0]));b.putString("category",categoryFocus);b.putStringArray("sections",openSections.toArray(new String[0]));b.putInt("detailYear",detailYear);b.putInt("yearKind",yearKind);captureDraft();if(formDraft!=null)b.putBundle("formDraft",formDraft.values);Bundle sq=new Bundle(),mf=new Bundle();for(String k:searches.keySet())sq.putString(k,searches.get(k));for(String k:monthFilters.keySet())mf.putString(k,monthFilters.get(k));b.putBundle("searches",sq);b.putBundle("monthFilters",mf);b.putInt("reimburseFilter",reimburseFilter);b.putBundle("labelEditor",labelScreens.saveState());}
     void handleDestination(Intent intent){
         if(intent.hasExtra("openTab")){tab=intent.getIntExtra("openTab",TAB_FUNDS);page="";backStack.clear();intent.removeExtra("openTab");}
         if("check".equals(intent.getStringExtra("openPage"))){tab=TAB_ACCOUNTS;page="check";snapshotEditing=null;backStack.clear();backStack.push("");intent.removeExtra("openPage");}
@@ -140,7 +142,7 @@ public final class MainActivity extends Activity {
     AppUpdates appUpdates;
     AppUpdates updates(){if(appUpdates==null)appUpdates=new AppUpdates(this);return appUpdates;}
     @Override protected void onResume(){super.onResume();getWindow().getDecorView().post(()->{if(!isFinishing()&&activeLock==null)updates().startup();});if(data!=null&&data.settings.appLockEnabled&&AppLock.shouldLockNow(this))render();}
-    @Override protected void onDestroy(){if(appUpdates!=null)appUpdates.dispose();if(activeLock!=null)activeLock.dismiss();if(networkDialog!=null)networkDialog.dismiss();if(iconChooser!=null)iconChooser.dismiss();if(fundScreenshot!=null)fundScreenshot.dispose();if(watchScreens!=null)watchScreens.dispose();store.close();super.onDestroy();}
+    @Override protected void onDestroy(){if(appUpdates!=null)appUpdates.dispose();if(activeLock!=null)activeLock.dismiss();if(networkDialog!=null)networkDialog.dismiss();if(iconChooser!=null)iconChooser.dismiss();if(watchScreens!=null)watchScreens.dispose();store.close();super.onDestroy();}
     void showLock(LockOverlay.Mode mode,Runnable done,Runnable cancel){
         if(activeLock!=null)return;
         activeLock=LockOverlay.show(this,mode,()->{activeLock=null;done.run();},()->{activeLock=null;cancel.run();});
@@ -154,7 +156,7 @@ public final class MainActivity extends Activity {
             showLock(LockOverlay.Mode.UNLOCK,()->{AppLock.markUnlocked();render();},()->finish());
             return;
         }
-        sectionContents.clear();sectionArrows.clear();
+        sectionContents.clear();sectionArrows.clear();nestedContents.clear();nestedParents.clear();nestedArrows.clear();
         fundScreens.pull=null;root=col();root.setFocusableInTouchMode(true);root.setBackgroundColor(BG);setContentView(root);
         root.setOnApplyWindowInsetsListener((v,i)->{
             if(Build.VERSION.SDK_INT>=30){Insets x=i.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.ime());v.setPadding(x.left,x.top,x.right,x.bottom);return WindowInsets.CONSUMED;}
@@ -278,7 +280,6 @@ public final class MainActivity extends Activity {
             case "income_detail":incomeDetail();break;case "income_category":incomeCategory();break;case "large_detail":entryDetail(Ledger.LARGE);break;case "reimburse_detail":entryDetail(Ledger.REIMBURSE);break;
             case "income_form":entryForm(Ledger.INCOME);break;case "large_form":entryForm(Ledger.LARGE);break;case "reimburse_form":entryForm(Ledger.REIMBURSE);break;
             case "fund_detail":fundScreens.detail(data,fundFocus,false);break;case "fund_total":fundScreens.detail(data,0,true);break;case "fund_profit":fundScreens.profitList(data);break;case "fund_trades":fundScreens.trades(data,fundFocus);break;case "fund_watchlist":watchScreens.show();break;case "watch_detail":watchScreens.detail(watchFocus);break;
-            case "fund_scan_preview":fundScreenshot.show();break;case "fund_screenshot_standard":fundScreenshot.standard();break;
             case "bank_review":bankScreens.review();break;case "bank_detail":bankScreens.detail();break;case "bank_records":bankScreens.records();break;case "bank_flows":bankScreens.flows();break;case "bank_income_preview":bankScreens.incomePreview();break;
             case "history":historyPage();break;case "import_preview":importPreview();break;case "investment_transfers":page="fund_watchlist";watchScreens.show();break;
             case "import_records":new ImportScreens(this,ImportJournal.RECORDS).show();break;
@@ -580,15 +581,16 @@ public final class MainActivity extends Activity {
     }
     /** One collapsible group. Returns the container its rows are added to. */
     LinearLayout group(String key,String title,String summary){
-        LinearLayout c=card(body);c.setBackground(Ui.round(Ui.ACCENT_TINT,dp(18)));c.setPadding(dp(16),0,dp(16),0);c.setContentDescription("分组"+title);
-        LinearLayout head=row();head.setMinimumHeight(dp(49));head.setBackground(ripple(Ui.ACCENT_TINT,16));
+        LinearLayout c=card(body);c.setBackground(Ui.round(Ui.ACCENT_TINT,dp(18)));c.setPadding(0,0,0,0);c.setClipToOutline(true);c.setContentDescription("分组"+title);
+        LinearLayout head=row();head.setPadding(dp(16),0,dp(16),0);head.setMinimumHeight(dp(57));head.setBackground(ripple(Ui.ACCENT_TINT,16));
         LinearLayout names=col();names.addView(text(title,15.5f,INK,true));if(summary!=null){gap(names,4);names.addView(text(summary,11.5f,MUTED,false));}weight(head,names);
         Chevron arrow=new Chevron(this);arrow.setRotation(openSections.contains(key)?90:0);head.addView(arrow,new LinearLayout.LayoutParams(dp(22),dp(22)));
-        head.setPadding(0,dp(7),0,dp(7));c.addView(head,new LinearLayout.LayoutParams(-1,-2));
-        LinearLayout content=col();content.setBackgroundColor(Ui.SURFACE);View accentLine=new View(this);accentLine.setBackgroundColor(Ui.ACCENT_SOFT);content.addView(accentLine,new LinearLayout.LayoutParams(-1,dp(2)));content.setVisibility(openSections.contains(key)?View.VISIBLE:View.GONE);c.addView(content);
+        head.setPadding(dp(16),dp(7),dp(16),dp(7));c.addView(head,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout content=col();content.setBackground(Ui.round(Ui.SURFACE,dp(14)));content.setClipToOutline(true);content.setPadding(dp(12),0,dp(12),dp(8));View accentLine=new View(this);accentLine.setBackgroundColor(Ui.ACCENT_SOFT);content.addView(accentLine,new LinearLayout.LayoutParams(-1,dp(2)));content.setVisibility(openSections.contains(key)?View.VISIBLE:View.GONE);c.addView(content);
         sectionContents.put(key,content);sectionArrows.put(key,arrow);
         head.setOnClickListener(v->{
             boolean show=content.getVisibility()!=View.VISIBLE;openSections.clear();
+            for(String child:nestedContents.keySet()){nestedContents.get(child).setVisibility(View.GONE);nestedArrows.get(child).open(false);}
             for(String other:sectionContents.keySet()){
                 boolean selected=show&&other.equals(key);sectionContents.get(other).setVisibility(selected?View.VISIBLE:View.GONE);sectionArrows.get(other).open(selected);
             }
@@ -598,7 +600,22 @@ public final class MainActivity extends Activity {
     }
     void rowIn(LinearLayout content,String title,String value,Runnable click){content.addView(ui.divider());LinearLayout r=ui.listRow(content,title,value,click);r.setMinimumHeight(dp(52));r.setContentDescription(title);}
     LinearLayout nestedGroup(LinearLayout parent,String key,String title){
-        LinearLayout card=col(),head=row(),content=col();card.setBackground(Ui.round(Ui.ACCENT_SOFT,dp(10)));card.setPadding(dp(10),0,dp(10),0);LinearLayout.LayoutParams spacing=new LinearLayout.LayoutParams(-1,-2);spacing.topMargin=dp(4);spacing.bottomMargin=dp(4);parent.addView(card,spacing);head.setMinimumHeight(dp(42));weight(head,text(title,14,INK,true));Chevron arrow=new Chevron(this);head.addView(arrow,new LinearLayout.LayoutParams(dp(20),dp(20)));boolean open=openSections.contains(key);content.setVisibility(open?View.VISIBLE:View.GONE);content.setBackgroundColor(Ui.SURFACE);arrow.open(open);head.setOnClickListener(v->{boolean show=content.getVisibility()!=View.VISIBLE;content.setVisibility(show?View.VISIBLE:View.GONE);arrow.open(show);if(show)openSections.add(key);else openSections.remove(key);});card.addView(head);card.addView(content);return content;
+        LinearLayout card=col(),head=row(),content=col();card.setTag(key);
+        card.setBackground(Ui.round(Ui.ACCENT_SOFT,dp(10)));card.setClipToOutline(true);
+        LinearLayout.LayoutParams spacing=new LinearLayout.LayoutParams(-1,-2);spacing.topMargin=dp(4);spacing.bottomMargin=dp(4);parent.addView(card,spacing);
+        head.setPadding(dp(10),0,dp(10),0);head.setBackground(ripple(Ui.ACCENT_SOFT,10));head.setMinimumHeight(dp(42));weight(head,text(title,14,INK,true));
+        Chevron arrow=new Chevron(this);head.addView(arrow,new LinearLayout.LayoutParams(dp(20),dp(20)));
+        boolean open=openSections.contains(key);content.setVisibility(open?View.VISIBLE:View.GONE);arrow.setRotation(open?90:0);
+        content.setBackground(Ui.round(Ui.SURFACE,dp(8)));content.setPadding(dp(10),0,dp(10),dp(6));
+        nestedContents.put(key,content);nestedParents.put(key,parent);nestedArrows.put(key,arrow);
+        head.setOnClickListener(v->{
+            boolean show=content.getVisibility()!=View.VISIBLE;
+            for(String sibling:nestedContents.keySet())if(nestedParents.get(sibling)==parent){
+                boolean selected=show&&sibling.equals(key);nestedContents.get(sibling).setVisibility(selected?View.VISIBLE:View.GONE);nestedArrows.get(sibling).open(selected);openSections.remove(sibling);
+            }
+            if(show)openSections.add(key);
+        });
+        card.addView(head);card.addView(content);return content;
     }
     void settingsPage(){
         LinearLayout titleRow=row();titleRow.setPadding(dp(4),0,0,dp(12));titleRow.addView(text("设置",24,INK,true));body.addView(titleRow);
@@ -635,18 +652,18 @@ public final class MainActivity extends Activity {
         LinearLayout labels=group("labels","标签与历史","收入标签、历史月支出");
         rowIn(labels,"管理收入标签",null,this::manageCategories);
         rowIn(labels,"历史月支出",data.history.isEmpty()?null:data.history.size()+" 个月",()->go("history"));
-        LinearLayout dataManagement=group("dataManagement","数据导入及导出备份管理",null);
-        LinearLayout records=nestedGroup(dataManagement,"records","收支报销数据管理");
+        LinearLayout dataManagement=group("dataManagement","数据导入及导出备份管理",null);dataManagement.setBackgroundColor(Ui.ACCENT_TINT);
+        LinearLayout records=nestedGroup(dataManagement,"dataManagement.records","收支报销数据管理");
         rowIn(records,"导入收支报销",null,()->pickFile(102));
         rowIn(records,"导出收支报销",null,this::exportRecordsDialog);
         rowIn(records,"下载收支报销模板",null,()->createFile(103,XLSX,"Yueji-收支报销模板.xlsx"));
         rowIn(records,"导入数据管理",null,()->{openImportBatch=-1;go("import_records");});
-        LinearLayout funds=nestedGroup(dataManagement,"funds","基金数据管理");
+        LinearLayout funds=nestedGroup(dataManagement,"dataManagement.funds","基金数据管理");
         rowIn(funds,"导入基金数据",null,()->pickFile(105));
         rowIn(funds,"导出基金数据",null,this::exportFunds);
         rowIn(funds,"下载基金模板",null,()->createFile(107,XLSX,"Yueji-基金模板.xlsx"));
         rowIn(funds,"导入数据管理",null,()->{openImportBatch=-1;go("import_funds");});
-        LinearLayout backup=nestedGroup(dataManagement,"backup","备份与恢复");
+        LinearLayout backup=nestedGroup(dataManagement,"dataManagement.backup","备份与恢复");
         rowIn(backup,"导出完整备份",null,()->createFile(100,"application/json","Yueji-"+LocalDate.now()+".json"));
         rowIn(backup,"恢复 JSON 备份",null,()->pickFile(101));
         TradingCalendar calendar=fundScreens.calendar();int thisYear=FundEngine.now().getYear();
@@ -668,7 +685,7 @@ public final class MainActivity extends Activity {
         updates().about(card(body));
         for(int i=0;i<body.getChildCount();i++){View child=body.getChildAt(i);if(child.getLayoutParams() instanceof LinearLayout.LayoutParams){LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)child.getLayoutParams();lp.bottomMargin=Math.min(lp.bottomMargin,dp(8));child.setLayoutParams(lp);}}
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.3";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.4";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}
@@ -776,10 +793,14 @@ public final class MainActivity extends Activity {
     }
     void write(Uri uri,byte[] bytes)throws IOException{try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("文件无法写入");out.write(bytes);}toast("已导出");}
     void write(Uri uri,String text)throws IOException{write(uri,text.getBytes(StandardCharsets.UTF_8));}
-    @Override protected void onActivityResult(int request,int result,Intent intent){super.onActivityResult(request,result,intent);if(request==ScreenshotCleanup.REQUEST||request==ScreenshotCleanup.REQUEST+1){screenshotCleanup.result(request,result);return;}if(request==BankScreens.IMAGE||request==BankScreens.INCOME){bankScreens.result(request,result,intent);return;}if(request==WatchlistScreens.PICK){if(result==RESULT_OK&&intent!=null&&intent.getData()!=null)watchScreens.read(intent.getData());return;}if(result!=RESULT_OK||intent==null)return;if(request==FundScreenshot.PICK){List<Uri> images=new ArrayList<>();if(intent.getClipData()!=null)for(int i=0;i<intent.getClipData().getItemCount();i++)images.add(intent.getClipData().getItemAt(i).getUri());else if(intent.getData()!=null)images.add(intent.getData());if(!images.isEmpty())fundScreenshot.read(images);return;}if(intent.getData()==null)return;Uri uri=intent.getData();try{
-        if(request==FundScreenshot.PICK){fundScreenshot.read(uri);return;}
-        if(request==100)write(uri,store.exportJson());
-        else if(request==103)write(uri,HistoryImport.templateXlsx());
+    @Override protected void onActivityResult(int request,int result,Intent intent){
+        super.onActivityResult(request,result,intent);
+        if(result!=RESULT_OK||intent==null||intent.getData()==null)return;
+        // Ignore results from removed screenshot workflows, including after an upgrade.
+        if(request!=100&&request!=101&&request!=102&&request!=103&&request!=104&&request!=105&&request!=106&&request!=107)return;
+        Uri uri=intent.getData();try{
+        if(request==100||request==101){backupFile(uri,request==101);return;}
+        if(request==103)write(uri,HistoryImport.templateXlsx());
         else if(request==104)write(uri,HistoryImport.exportXlsx(store.load(),pendingFrom,pendingTo,pendingExpense,pendingIncome,pendingReimburse));
         else if(request==106)write(uri,FundSheet.exportXlsx(store.load()));
         else if(request==107)write(uri,FundSheet.templateXlsx());
@@ -788,10 +809,40 @@ public final class MainActivity extends Activity {
             byte[] content;try(InputStream in=getContentResolver().openInputStream(uri)){content=readLimit(in);}
             if(request==102){pendingImport=HistoryImport.preview(content,store.load());go("import_preview");}
             else if(request==105)fundScreens.importFile(content);
-            else{Ledger.Data restored=store.parseBackup(new String(content,StandardCharsets.UTF_8));AppIcons.dialog(this).setTitle("替换当前数据？").setMessage("账户 "+restored.accounts.size()+" 个，更新 "+restored.snapshots.size()+" 次，记录 "+restored.entries.size()+" 条，负债 "+restored.debts.size()+" 笔。").setNegativeButton("取消",null).setPositiveButton("恢复",(d,w)->{try{commit(restored);FundRefreshJob.schedule(this);go("");}catch(Exception e){error(e);}}).show();}
         }
     }catch(Exception e){error(e);}}
-    byte[] readLimit(InputStream in)throws IOException{if(in==null)throw new IOException("无法读取文件");ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>10*1024*1024)throw new IOException("文件不能超过10MB");out.write(b,0,n);}return out.toByteArray();}
+    byte[] readLimit(InputStream in)throws IOException{return readLimit(in,10*1024*1024);}
+    byte[] readLimit(InputStream in,int limit)throws IOException{if(in==null)throw new IOException("无法读取文件");ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>limit)throw new IOException("文件不能超过"+(limit/1024/1024)+"MB");out.write(b,0,n);}return out.toByteArray();}
+    void backupFile(Uri uri,boolean restore){
+        AlertDialog progress=AppIcons.dialog(this).setTitle(restore?"校验完整备份":"导出完整备份").setMessage("正在处理账本，请稍候…").setCancelable(false).create();progress.show();
+        new Thread(()->{
+            LedgerStore worker=new LedgerStore(getApplicationContext());
+            try{
+                if(restore){
+                    byte[] bytes;try(InputStream in=getContentResolver().openInputStream(uri)){bytes=readLimit(in,64*1024*1024);}
+                    Ledger.Data restored=worker.parseBackup(new String(bytes,StandardCharsets.UTF_8));
+                    runOnUiThread(()->{progress.dismiss();if(isDestroyed()||isFinishing())return;confirmBackup(restored);});
+                }else{
+                    byte[] bytes=worker.exportJson().getBytes(StandardCharsets.UTF_8);
+                    if(bytes.length>64*1024*1024)throw new IOException("备份超过64MB，请联系维护者处理，勿删除账本");
+                    try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("文件无法写入");out.write(bytes);}
+                    runOnUiThread(()->{progress.dismiss();if(!isDestroyed()&&!isFinishing())toast("完整备份已导出（包含自选基金与分组）");});
+                }
+            }catch(Exception e){runOnUiThread(()->{progress.dismiss();if(!isDestroyed()&&!isFinishing())error(e);});}
+            finally{worker.close();}
+        },"ledger-backup").start();
+    }
+    void confirmBackup(Ledger.Data restored){
+        AppIcons.dialog(this).setTitle("替换当前数据？").setMessage("账户 "+restored.accounts.size()+" 个，更新 "+restored.snapshots.size()+" 次，记录 "+restored.entries.size()+" 条，负债 "+restored.debts.size()+" 笔。\n已购基金 "+restored.funds.size()+" 只，自选基金 "+restored.watchFunds.size()+" 只，自选分组 "+restored.watchGroups.size()+" 个。\n恢复会完整替换当前账本；旧备份没有的自选数据不会保留。请先导出当前备份。").setNegativeButton("取消",null).setPositiveButton("恢复",(dialog,which)->{
+            watchScreens.dispose();AlertDialog progress=AppIcons.dialog(this).setTitle("正在恢复账本").setMessage("正在事务中保存，失败不会替换原账本…").setCancelable(false).create();progress.show();
+            new Thread(()->{
+                LedgerStore worker=new LedgerStore(getApplicationContext());
+                try{worker.replaceBackup(restored);runOnUiThread(()->{progress.dismiss();if(isDestroyed()||isFinishing())return;data=restored;FundRefreshJob.schedule(this);go("");});}
+                catch(Exception e){runOnUiThread(()->{progress.dismiss();if(!isDestroyed()&&!isFinishing())error(e);});}
+                finally{worker.close();}
+            },"ledger-restore").start();
+        }).show();
+    }
 
     // ---------------------------------------------------------------- funds
     void funds(){fundScreens.list(data);}

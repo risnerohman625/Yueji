@@ -113,7 +113,8 @@ final class FundScreens {
         if(m.refreshing&&pull!=null)pull.setRefreshing(true);
     }
     int sortOrder(){return Math.max(0,Math.min(2,m.getPreferences(0).getInt("fundSort",2)));}
-    void addChoice(){AppIcons.dialog(m).setTitle("添加基金").setItems(new String[]{"手动输入","自动识别","添加银行理财"},(d,w)->{if(w==0)buy(null,null);else if(w==1)m.fundScreenshot.pick();else m.bankScreens.start(0);}).setNegativeButton("取消",null).show();}
+    void addChoice(){AppIcons.dialog(m).setTitle("添加基金").setItems(new String[]{"手动输入","添加银行理财"},(d,w)->{if(w==0)buy(null,null);else m.bankScreens.start(0);}).setNegativeButton("取消",null).show();}
+    void buyFromWatch(String name,String code){buyInternal(null,null,0,0,0,false,name,code);}
     TextView sortButton(){
         String[] names={"购入时间","持有金额","持有收益"};int selected=Math.max(0,Math.min(2,sortOrder()));
         TextView button=m.ui.link("⇅ "+names[selected],()->{m.getPreferences(0).edit().putInt("fundSort",FundRules.nextSort(selected)).apply();m.rerenderKeepingScroll();});button.setContentDescription("基金排序");button.setTextSize(12);return button;
@@ -436,9 +437,12 @@ final class FundScreens {
     List<Ledger.Account> transactionAccounts(long selected){List<Ledger.Account> result=new ArrayList<>();for(Ledger.Account a:m.data.accounts)if(a.deletedAt==null||a.id==selected)result.add(a);return result;}
     void buy(Ledger.Fund old,Ledger.FundBuy editing){buy(old,editing,0,0,0,false);}
     void buy(Ledger.Fund old,Ledger.FundBuy editing,long presetAmount,long presetFee,long presetAccount,boolean recurringRun){
+        buyInternal(old,editing,presetAmount,presetFee,presetAccount,recurringRun,null,null);
+    }
+    void buyInternal(Ledger.Fund old,Ledger.FundBuy editing,long presetAmount,long presetFee,long presetAccount,boolean recurringRun,String presetName,String presetCode){
         LinearLayout form=m.col();form.setPadding(m.dp(16),0,m.dp(16),m.dp(14));
-        EditText name=m.field(form,"基金名称",old==null?"":old.name,false);if(old!=null)name.setEnabled(false);
-        EditText code=m.field(form,"基金代码",old==null?"":old.code,true);code.setInputType(InputType.TYPE_CLASS_NUMBER);
+        EditText name=m.field(form,"基金名称（自动获取）",old==null?(presetName==null?"":presetName):old.name,false);name.setEnabled(false);name.setHint("保存时根据代码自动获取");
+        EditText code=m.field(form,"基金代码",old==null?(presetCode==null?"":presetCode):old.code,true);code.setInputType(InputType.TYPE_CLASS_NUMBER);if(presetCode!=null)code.setEnabled(false);
         if(old!=null&&editing==null)code.setEnabled(false);
         EditText amount=m.field(form,"买入金额（含手续费）",editing==null?(presetAmount>0?Ledger.decimal(presetAmount):""):Ledger.decimal(editing.amount),true);
         EditText fee=m.field(form,"手续费（元）",editing==null?Ledger.decimal(presetFee):Ledger.decimal(editing.fee),true);
@@ -461,25 +465,31 @@ final class FundScreens {
         }
         d.show();
         d.getButton(-1).setOnClickListener(v->{try{
-            String fundName=name.getText().toString().trim();if(fundName.isEmpty())throw new IllegalArgumentException("基金名称不能为空");String symbol=code.getText().toString().trim();if(!symbol.matches("[0-9]{6}"))throw new IllegalArgumentException("基金代码为6位数字");long gross=Ledger.parseMoney(amount.getText().toString(),true),charge=Ledger.parseMoney(fee.getText().toString(),false);
+            String symbol=code.getText().toString().trim();if(!symbol.matches("[0-9]{6}"))throw new IllegalArgumentException("基金代码为6位数字");long gross=Ledger.parseMoney(amount.getText().toString(),true),charge=Ledger.parseMoney(fee.getText().toString(),false);
+            Ledger.WatchFund cached=m.watchScreens.find(symbol);String knownName=presetCode!=null?presetName:cached==null?null:cached.name;
+            String knownType=cached==null?"":cached.fundType;
             LocalDateTime selectedAt=date.at;
             if(charge>=gross)throw new IllegalArgumentException("手续费须小于买入金额");if(selectedAt.isAfter(FundEngine.now()))throw new IllegalArgumentException("买入时间不能在未来");
             for(Ledger.Fund f:m.store.load().funds)if(f.code.equals(symbol)&&f.removed())throw new IllegalArgumentException("该基金已从首页删除，请先在累计收益中恢复或永久删除");
-            d.getButton(-1).setEnabled(false);d.getButton(-1).setText("读取历史净值…");new Thread(()->{
-                FundClient.Quote quote=null;String failure="";try{quote=FundClient.fetchHistory(symbol);}catch(Exception e){failure=NetworkIo.message(e);}
+            long epoch=LedgerStore.epoch();d.getButton(-1).setEnabled(false);d.getButton(-1).setText("读取历史净值…");new Thread(()->{
+                FundClient.Quote quote=null;String failure="";try{quote=knownName==null?FundClient.fetchHistory(symbol):FundClient.fetchHistoryKnown(symbol,knownName,knownType);}catch(Exception e){failure=NetworkIo.message(e);}
                 FundClient.Quote result=quote;String problem=failure;m.runOnUiThread(()->{if(m.isDestroyed()||m.isFinishing()||!d.isShowing())return;try{
+                    if(LedgerStore.epoch()!=epoch)throw new IllegalArgumentException("账本已恢复，请关闭后重新添加买入");
                     Ledger.Data candidate=LedgerStore.decode(LedgerStore.encode(m.store.load()));
-                    if(result!=null&&!FundDetailRecognition.exact(fundName,result.name))throw new IllegalArgumentException("基金名称与代码不一致，请核对官方名称："+result.name);
+                    String fundName=result==null?knownName:result.name;
+                    if(fundName==null||fundName.isEmpty())throw new IllegalArgumentException("无法联网获取基金名称，请联网后重试；尚未保存买入");
+                    name.setText(fundName);
                     boolean linkBuy=sourceAccount.getSelectedItemPosition()>0;
                     long buyAccountId=linkBuy?accounts.get(sourceAccount.getSelectedItemPosition()-1).id:0;
                     Ledger.Fund target=FundTransactions.save(candidate,old==null?0:old.id,editing==null?0:editing.id,symbol,gross,charge,selectedAt,result,problem,false,linkBuy,buyAccountId,calendar);
+                    if(result==null){target.name=fundName;if(cached!=null){target.nav=cached.nav;target.previous=cached.previous;target.navDate=cached.navDate;target.fundType=cached.fundType;target.prices.putAll(cached.prices);target.navReturns.putAll(cached.returns);target.profile.read(cached.profile.encode());FundEngine.resolve(target,calendar);}}
                     if(recurringRun){
                         if(!linkBuy)throw new IllegalArgumentException("每笔定投都必须关联资金账户");
                         Ledger.FundBuy saved=target.buys.isEmpty()?null:target.buys.get(target.buys.size()-1);
                         if(saved==null)throw new IllegalArgumentException("定投买入记录创建失败");
                         RecurringInvestments.record(candidate,target,saved);
                     }
-                    m.commit(candidate);m.fundFocus=target.id;d.dismiss();m.render();if(recurring.isChecked()&&editing==null&&!target.fundType.contains("银行"))configurePlan(target);if(result==null)m.networkProblem(problem+"\n买入已保存，历史净值待获取。");
+                    m.commit(candidate,epoch);m.fundFocus=target.id;d.dismiss();m.render();if(recurring.isChecked()&&editing==null&&!target.fundType.contains("银行"))configurePlan(target);if(result==null)m.networkProblem(problem+"\n买入已保存，历史净值待获取。");
                 }catch(Exception e){d.getButton(-1).setEnabled(true);d.getButton(-1).setText("重新获取");if(result==null&&!problem.isEmpty())m.networkProblem(problem+"\n"+e.getMessage());else m.error(e);}});
             },"fund-history").start();
         }catch(Exception e){m.error(e);}});
@@ -562,7 +572,6 @@ final class FundScreens {
             .setMessage("新增买入 "+plan.add.size()+" 笔，涉及 "+plan.codes.size()+" 只基金；跳过重复 "+plan.skipped+" 笔。\n导入会联网读取历史净值来计算份额，下一步可为每笔选择资金账户和定投；选择不关联账户时不改余额。")
             .setNegativeButton("取消",null).setPositiveButton("下一步",(d,w)->importOptions(rows,plan.codes)).show();
     }
-    void importRecognized(List<FundSheet.Row> rows,Set<String> codes){importOptions(rows,codes);}
     final Set<String> importPlanCodes=new LinkedHashSet<>();
     void importOptions(List<FundSheet.Row> rows,Set<String> codes){
         LinearLayout form=m.col();form.setPadding(m.dp(15),0,m.dp(15),m.dp(12));List<Ledger.Account> accounts=transactionAccounts(0);String[] names=new String[accounts.size()+1];names[0]="不关联账户";for(int i=0;i<accounts.size();i++)names[i+1]=accounts.get(i).name;
@@ -571,7 +580,7 @@ final class FundScreens {
         AlertDialog dialog=AppIcons.dialog(m).setTitle("资金来源与定投选项").setView(m.wrap(form)).setNegativeButton("取消",null).setPositiveButton("确认导入",null).create();dialog.show();dialog.getButton(-1).setOnClickListener(v->{try{importPlanCodes.clear();for(Map.Entry<FundSheet.Row,Spinner> e:selected.entrySet()){int position=e.getValue().getSelectedItemPosition();e.getKey().sourceAccountLinked=position>0;e.getKey().sourceAccountId=position==0?0:accounts.get(position-1).id;if(position>0)AccountCash.requireAccount(m.data,e.getKey().sourceAccountId,FundEngine.ledgerTime(e.getKey().at));}for(Map.Entry<String,CheckBox> e:plans.entrySet())if(e.getValue().isChecked())importPlanCodes.add(e.getKey());dialog.dismiss();runImport(rows,codes);}catch(Exception e){m.error(e);}});
     }
     private void runImport(List<FundSheet.Row> rows,Set<String> codes){
-        boolean screenshot=m.page.equals("fund_scan_preview");
+        long epoch=LedgerStore.epoch();
         AlertDialog progress=AppIcons.dialog(m).setTitle("导入基金").setMessage("正在读取净值…").setCancelable(false).create();progress.show();
         new Thread(()->{
             Map<String,FundClient.Quote> quotes=new HashMap<>();Map<String,String> failures=new HashMap<>();int index=0;String connectionFailure=null;
@@ -583,18 +592,11 @@ final class FundScreens {
             m.runOnUiThread(()->{
                 progress.dismiss();if(m.isDestroyed()||m.isFinishing())return;
                 try{
+                    if(LedgerStore.epoch()!=epoch)throw new IllegalArgumentException("账本已恢复，请重新导入表格");
                     Ledger.Data before=m.store.load(),candidate=LedgerStore.decode(LedgerStore.encode(before));
-                    if(screenshot)for(FundSheet.Row row:rows){
-                        FundClient.Quote official=quotes.get(row.code);
-                        if(official!=null&&!FundDetailRecognition.exact(row.name,official.name))throw new IllegalArgumentException("基金名称已与代码返回结果不一致，请重新核对："+official.name+"（"+row.code+"）");
-                    }
-                    if(screenshot)for(FundSheet.Row row:rows){
-                        FundRecognition.Row check=new FundRecognition.Row();check.code=row.code;check.at=row.at;
-                        if(FundDetailRecognition.duplicate(check,candidate))throw new IllegalArgumentException("该基金同一分钟的买入已添加，请返回核对");
-                    }
                     int added=FundSheet.apply(candidate,FundSheet.plan(rows,candidate),quotes,failures,calendar());
-                    ImportJournal.record(before,candidate,ImportJournal.FUNDS,screenshot?"买入详情截图":"表格导入");
-                    m.commit(candidate);if(screenshot){m.fundScreenshot.rows.clear();m.openTab(MainActivity.TAB_FUNDS);m.fundScreenshot.imported();}else m.render();if(!importPlanCodes.isEmpty()){List<Ledger.Fund> funds=new ArrayList<>();for(Ledger.Fund fund:candidate.funds)if(importPlanCodes.contains(fund.code))funds.add(fund);String[] titles=new String[funds.size()];for(int i=0;i<titles.length;i++)titles[i]=funds.get(i).name;AppIcons.dialog(m).setTitle("手动配置导入基金定投").setItems(titles,(d,w)->configurePlan(funds.get(w))).setNegativeButton("稍后在详情中配置",null).show();}m.toast("已导入 "+added+" 笔买入");if(!failures.isEmpty())m.networkProblem(failures.values().iterator().next()+"\n已导入 "+added+" 笔买入，"+failures.size()+" 只基金净值待获取。");
+                    ImportJournal.record(before,candidate,ImportJournal.FUNDS,"表格导入");
+                    m.commit(candidate,epoch);m.render();if(!importPlanCodes.isEmpty()){List<Ledger.Fund> funds=new ArrayList<>();for(Ledger.Fund fund:candidate.funds)if(importPlanCodes.contains(fund.code))funds.add(fund);String[] titles=new String[funds.size()];for(int i=0;i<titles.length;i++)titles[i]=funds.get(i).name;AppIcons.dialog(m).setTitle("手动配置导入基金定投").setItems(titles,(d,w)->configurePlan(funds.get(w))).setNegativeButton("稍后在详情中配置",null).show();}m.toast("已导入 "+added+" 笔买入");if(!failures.isEmpty())m.networkProblem(failures.values().iterator().next()+"\n已导入 "+added+" 笔买入，"+failures.size()+" 只基金净值待获取。");
                 }catch(Exception e){m.error(e);}
             });
         },"fund-import").start();

@@ -32,94 +32,13 @@ public class V462UiTest {
             try{v.click();t.instrument.waitForIdleSync();return;}catch(StaleObjectException e){if(attempt==2)throw e;SystemClock.sleep(200);}
         }
     }
-    void waitScan()throws Exception{
-        for(int n=0;n<360&&(t.app.fundScreenshot.busy||!t.app.page.equals("fund_scan_preview"));n++)SystemClock.sleep(250);
-        assertFalse("OCR/name lookup must finish",t.app.fundScreenshot.busy);
-        shot("v462-scan-result.png");t.device.dumpWindowHierarchy(new File(t.dir,"scan-result.xml"));
-        assertEquals("fund_scan_preview",t.app.page);
-        assertFalse(t.app.fundScreenshot.rows.isEmpty());
-    }
-    void pickThroughSystemDocuments()throws Exception{
-        t.ui(()->t.app.openTab(MainActivity.TAB_FUNDS));tap("＋ 添加基金");tap("自动识别");
-        UiObject2 file=t.device.wait(Until.findObject(By.descStartsWith("01-基金买入详情.jpg")),1800);
-        if(file==null){
-            UiObject2 drawer=t.device.findObject(By.desc("Show roots"));
-            if(drawer==null)drawer=t.device.findObject(By.desc("显示根目录"));
-            if(drawer==null)drawer=t.device.findObject(By.desc("显示位置"));
-            if(drawer!=null)drawer.click();
-            tap("Yueji 4.6.2 测试截图");
-        }
-        file=t.device.wait(Until.findObject(By.descStartsWith("01-基金买入详情.jpg")),6000);
-        if(file==null)file=t.device.findObject(By.text("01-基金买入详情.jpg"));
-        if(file==null){shot("v462-picker-problem.png");t.device.dumpWindowHierarchy(new File(t.dir,"picker-problem.xml"));}
-        assertNotNull("supplied purchase screenshot must be selectable through Android DocumentsUI",file);shot("v462-system-image-picker.png");
-        for(int retry=0;retry<3;retry++){
-            try{file=t.device.findObject(By.descStartsWith("01-基金买入详情.jpg"));if(file==null)file=t.device.findObject(By.text("01-基金买入详情.jpg"));assertNotNull(file);file.click();break;}
-            catch(StaleObjectException e){if(retry==2)throw e;SystemClock.sleep(200);}
-        }
-        t.instrument.waitForIdleSync();waitScan();
-    }
-    void confirmIdentityIfNeeded()throws Exception{
-        FundRecognition.Row row=t.app.fundScreenshot.rows.get(0);
-        try(PrintWriter out=new PrintWriter(new File(t.dir,"live-identity.txt"),"UTF-8")){
-            out.println("recognized="+row.name+" code="+row.code+" verified="+row.verified+" review="+row.needsReview);
-            out.println("problem="+row.problem);for(FundClient.Match match:row.matches)out.println(match.code+" "+match.name);
-        }
-        assertEquals(100000,row.amount);assertEquals(60,row.fee);assertEquals(LocalDateTime.of(2026,10,19,1,40),row.at);assertFalse(row.problem,row.needsReview);
-        assertEquals("平安元泓30天滚动持有短债债券A",row.name);
-        if(!row.verified){
-            assertFalse("live service must produce candidates, not invented codes",row.matches.isEmpty());
-            FundClient.Match official=null;for(FundClient.Match match:row.matches)if(match.name.contains("元泓30天")&&match.name.endsWith("A")){official=match;break;}
-            assertNotNull("correct product/share class",official);tap("核对并修改");
-            t.device.findObject(By.desc("识别基金名称")).setText(official.name);t.device.findObject(By.desc("识别基金代码")).setText(official.code);
-            tap("联网核验并更新");
-            for(int n=0;n<160&&!row.verified;n++)SystemClock.sleep(250);
-            assertTrue("real network code verification",row.verified);
-        }
-    }
-    void commit()throws Exception{
-        tap("完成导入");
-        for(int n=0;n<260&&t.store.load().funds.isEmpty();n++)SystemClock.sleep(250);
-        if(t.device.hasObject(By.text("知道了")))tap("知道了");
-        assertEquals(1,t.store.load().funds.size());Ledger.Fund fund=t.store.load().funds.get(0);
-        assertEquals(1,fund.buys.size());assertEquals(100000,fund.buys.get(0).amount);assertEquals(60,fund.buys.get(0).fee);
-        assertEquals(LocalDateTime.of(2026,10,19,1,40),fund.buys.get(0).at);assertEquals(1,ImportJournal.visible(t.store.load(),ImportJournal.FUNDS).size());
-        shot("v462-import-saved-fund.png");
-    }
-    @Test public void actualSystemPickerOcrLiveMatchSaveDuplicateDeleteAndReimport()throws Exception{
-        t.context.getContentResolver().call(provider,"picker-reset",null,null);Ledger.Data blank=new Ledger.Data();blank.settings.autoRefresh=false;t.start(blank);
-        pickThroughSystemDocuments();confirmIdentityIfNeeded();shot("v462-original-review.png");commit();
-        for(int n=0;n<40&&t.context.getContentResolver().call(provider,"picker-count",null,null).getInt("count")==0;n++)SystemClock.sleep(100);
-        assertEquals("only committed source document deleted",1,t.context.getContentResolver().call(provider,"picker-count",null,null).getInt("count"));
-        t.context.getContentResolver().call(provider,"picker-reset",null,null);pickThroughSystemDocuments();confirmIdentityIfNeeded();
-        t.ui(()->{FundRecognition.Row row=t.app.fundScreenshot.rows.get(0);assertTrue(row.added);assertFalse(row.selected);assertNotNull(t.findText(t.app.body,"已添加"));});shot("v462-original-duplicate.png");
-        assertEquals(1,t.store.load().funds.get(0).buys.size());assertEquals(0,t.context.getContentResolver().call(provider,"picker-count",null,null).getInt("count"));
-        t.ui(()->{t.app.fundScreenshot.rows.clear();t.app.go("import_funds");t.app.openImportBatch=t.store.load().imports.get(0).id;t.app.render();});shot("v462-import-management-funds.png");
-        t.ui(()->h.desc(t.app.body,"删除导入批次"+t.store.load().imports.get(0).id).performClick());tap("删除");assertTrue(t.store.load().funds.isEmpty());
-        pickThroughSystemDocuments();confirmIdentityIfNeeded();assertFalse(t.app.fundScreenshot.rows.get(0).added);commit();
-    }
-    @Test public void compressedImageAndRedactedReferenceStillProduceReviewableFields()throws Exception{
-        t.start(new Ledger.Data());
-        try(InputStream in=InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("fund-purchase-detail.jpg")){
-            Bitmap original=BitmapFactory.decodeStream(in);
-            for(int width:new int[]{720,480}){
-                Bitmap resized=Bitmap.createScaledBitmap(original,width,original.getHeight()*width/original.getWidth(),true);
-                File file=new File(t.context.getCacheDir(),"compressed-"+width+".jpg");try(OutputStream out=new FileOutputStream(file)){resized.compress(Bitmap.CompressFormat.JPEG,65,out);}resized.recycle();
-                FundRecognition.Row row=ocr(file);assertEquals(100000,row.amount);assertEquals(LocalDateTime.of(2026,10,19,1,40),row.at);
-                assertFalse("fee/time cannot default silently",row.fee==0&&!row.needsReview);file.delete();
-            }original.recycle();
-        }
-        File standard=new File(t.context.getCacheDir(),"redacted-standard.jpg");
-        try(InputStream in=t.context.getAssets().open("fund-purchase-standard.jpg");OutputStream out=new FileOutputStream(standard)){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1)out.write(b,0,n);}
-        FundRecognition.Row row=ocr(standard);assertEquals(100000,row.amount);assertEquals(60,row.fee);assertFalse(row.needsReview);standard.delete();
-    }
-    FundRecognition.Row ocr(File file)throws Exception{
-        CountDownLatch done=new CountDownLatch(1);AtomicReference<List<FundRecognition.Line>> result=new AtomicReference<>();AtomicReference<Exception> error=new AtomicReference<>();
-        t.ui(()->ScreenshotOcr.recognize(t.context,Uri.fromFile(file),lines->{result.set(lines);done.countDown();},e->{error.set(e);done.countDown();}));
-        assertTrue(done.await(40,TimeUnit.SECONDS));if(error.get()!=null)throw error.get();
-        try(PrintWriter out=new PrintWriter(new File(t.dir,file.getName()+".ocr.txt"),"UTF-8")){for(FundRecognition.Line line:result.get())out.println(line.top+","+line.left+": "+line.text);}
-        return FundDetailRecognition.parse(result.get());
-    }
+
+
+
+
+
+
+
     @Test public void importManagementAccordionIndividualAndWholeBatchDeletion(){
         Ledger.Data d=new Ledger.Data(),before=LedgerStore.decode(LedgerStore.encode(d));
         for(int i=0;i<2;i++){Ledger.Entry e=new Ledger.Entry(d.nextId(),true,10000,LocalDateTime.of(2026,10,19,8,i),"工资"+i,"",0);e.category="工资";d.entries.add(e);}

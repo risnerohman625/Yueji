@@ -1,0 +1,16 @@
+{
+  "versionName": "4.7.4",
+  "versionCode": 23,
+  "package": "cn.yueji.balance",
+  "apkBytes": 1714374,
+  "sha256": "10e40ebcbf510ec3c2625b6934cfd0cee0519b7d24862781b92129e4dfba31f2",
+  "previousApkBytes": 26092366,
+  "ocrAssetsOrNativeLibraries": [],
+  "ocrProductionClasses": [],
+  "signatureSha256": "52326c1c3837684150e996b3c6a0e007d19c78e70de397b7bad82d5e48126915",
+  "signatureComparedWith": "Yueji-4.7.3-debug.apk",
+  "tests": {
+    "JVM": 318,
+    "instrumentation": 40
+  }
+}

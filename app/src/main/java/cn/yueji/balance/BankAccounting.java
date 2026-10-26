@@ -57,7 +57,7 @@ final class BankAccounting {
     }
     static void importIncome(Ledger.Data data,BankLedger.Product p,BankLedger.Draft income){
         if(p.removed())throw new IllegalArgumentException("请先恢复产品");
-        if(income.cumulative==null||income.daily.isEmpty())throw new IllegalArgumentException("收益截图必须包含累计收益和带日期的每日收益");
+        if(income.cumulative==null||income.daily.isEmpty())throw new IllegalArgumentException("收益记录必须包含累计收益和带日期的每日收益");
         LocalDate report=income.daily.lastKey();if(report.isAfter(FundEngine.now().toLocalDate()))throw new IllegalArgumentException("收益日期不能在未来");
         int segment=BankLedger.segment(p);BankLedger.Observation anchor=first(p,segment);
         if(segment>0&&report.isBefore(anchor.at.toLocalDate()))throw new IllegalArgumentException("收益日期早于当前产品变更，不能把旧产品收益导入新产品");
@@ -66,7 +66,7 @@ final class BankAccounting {
         for(BankLedger.Observation old:p.observations)if(old.segment==segment&&old.cumulative!=null&&!date(old).equals(report)){
             LocalDate from=date(old).isBefore(report)?date(old):report,to=date(old).isBefore(report)?report:date(old);
             long change=0;boolean complete=true;for(LocalDate day=from.plusDays(1);!day.isAfter(to);day=day.plusDays(1)){Long gain=allDaily.get(day);if(gain==null){complete=false;break;}change=Math.addExact(change,gain);}
-            if(complete){long expected=date(old).isBefore(report)?old.cumulative+change:old.cumulative-change;if(expected!=income.cumulative)throw new IllegalArgumentException("累计收益与已有日收益不能衔接，请核对截图日期、产品及累计收益，不能静默覆盖不同口径");}
+            if(complete){long expected=date(old).isBefore(report)?old.cumulative+change:old.cumulative-change;if(expected!=income.cumulative)throw new IllegalArgumentException("累计收益与已有日收益不能衔接，请核对记录日期、产品及累计收益，不能静默覆盖不同口径");}
         }
         long afterAnchor=0;for(Map.Entry<LocalDate,Long> day:income.daily.entrySet())if(day.getKey().isAfter(anchor.at.toLocalDate()))afterAnchor=Math.addExact(afterAnchor,day.getValue());
         if(!p.bases.containsKey(segment)){

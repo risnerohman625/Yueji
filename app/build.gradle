@@ -7,8 +7,8 @@ android {
         applicationId 'cn.yueji.balance'
         minSdk 26
         targetSdk 36
-        versionCode 22
-        versionName '4.7.3'
+        versionCode 23
+        versionName '4.7.4'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     compileOptions {
@@ -29,7 +29,6 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.mlkit:text-recognition-chinese:16.0.1'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
     androidTestImplementation 'androidx.test:runner:1.7.0'

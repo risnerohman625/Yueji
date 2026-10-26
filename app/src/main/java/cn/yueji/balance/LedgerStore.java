@@ -10,23 +10,49 @@ import java.util.*;
 
 /** V1 tables stay intact until the first successful V2 transaction. */
 public final class LedgerStore extends SQLiteOpenHelper {
- public LedgerStore(Context c){super(c,"yueji.db",null,3);}
- @Override public void onCreate(SQLiteDatabase db){db.execSQL("CREATE TABLE state(id INTEGER PRIMARY KEY CHECK(id=1), json TEXT NOT NULL)");}
- @Override public void onUpgrade(SQLiteDatabase db,int old,int next){db.execSQL("CREATE TABLE IF NOT EXISTS state(id INTEGER PRIMARY KEY CHECK(id=1), json TEXT NOT NULL)");}
- public synchronized Ledger.Data load(){
-  SQLiteDatabase db=getReadableDatabase();try(Cursor c=db.rawQuery("SELECT json FROM state WHERE id=1",null)){if(c.moveToFirst())return decode(c.getString(0));}Ledger.Data d=new Ledger.Data();
+ static final int CHUNK_CHARS=64000;
+ private static long dataEpoch;
+ static synchronized long epoch(){return dataEpoch;}
+ public void replaceBackup(Ledger.Data data){synchronized(LedgerStore.class){save(data);dataEpoch++;}}
+ public LedgerStore(Context c){super(c,"yueji.db",null,4);}
+ @Override public void onCreate(SQLiteDatabase db){db.execSQL("CREATE TABLE state(id INTEGER PRIMARY KEY CHECK(id=1), json TEXT NOT NULL)");db.execSQL("CREATE TABLE state_chunks(id INTEGER NOT NULL, part INTEGER NOT NULL, json TEXT NOT NULL, PRIMARY KEY(id,part))");}
+ @Override public void onUpgrade(SQLiteDatabase db,int old,int next){db.execSQL("CREATE TABLE IF NOT EXISTS state(id INTEGER PRIMARY KEY CHECK(id=1), json TEXT NOT NULL)");db.execSQL("CREATE TABLE IF NOT EXISTS state_chunks(id INTEGER NOT NULL, part INTEGER NOT NULL, json TEXT NOT NULL, PRIMARY KEY(id,part))");}
+ public Ledger.Data load(){synchronized(LedgerStore.class){return loadInternal();}}
+ private Ledger.Data loadInternal(){
+  SQLiteDatabase db=getReadableDatabase();StringBuilder chunked=new StringBuilder();int expected=0;
+  try(Cursor c=db.rawQuery("SELECT part,json FROM state_chunks WHERE id=1 ORDER BY part",null)){
+   while(c.moveToNext()){if(c.getInt(0)!=expected++)throw new IllegalStateException("账本分块不完整，请从备份恢复");chunked.append(c.getString(1));}
+  }
+  if(expected>0)return decode(chunked.toString());
+  // Read legacy single-row JSON with SQL substr so oversized state never has to fit one CursorWindow row.
+  try(Cursor c=db.rawQuery("SELECT length(json) FROM state WHERE id=1",null)){if(c.moveToFirst()){int length=c.getInt(0);for(int start=1;start<=length;start+=CHUNK_CHARS){try(Cursor part=db.rawQuery("SELECT substr(json,?,?) FROM state WHERE id=1",new String[]{""+start,""+CHUNK_CHARS})){if(part.moveToFirst())chunked.append(part.getString(0));}}return decode(chunked.toString());}}Ledger.Data d=new Ledger.Data();
   try(Cursor c=db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'",null)){if(!c.moveToFirst())return d;}
   try(Cursor c=db.rawQuery("SELECT id,name,type FROM accounts",null)){while(c.moveToNext())d.accounts.add(new Ledger.Account(c.getLong(0),c.getString(1),c.getString(2)));}
   try(Cursor c=db.rawQuery("SELECT id,at,note FROM snapshots ORDER BY at",null)){while(c.moveToNext()){Ledger.Snapshot s=new Ledger.Snapshot(c.getLong(0),LocalDateTime.parse(c.getString(1)),c.getString(2));try(Cursor b=db.rawQuery("SELECT account_id,amount FROM balances WHERE snapshot_id=?",new String[]{""+s.id})){while(b.moveToNext())s.balances.put(b.getLong(0),b.getLong(1));}d.snapshots.add(s);}}
   for(Ledger.Account a:d.accounts)for(Ledger.Snapshot s:d.snapshots)if(s.balances.containsKey(a.id)){a.created=s.at;a.opening=s.balances.get(a.id);break;}
   try(Cursor c=db.rawQuery("SELECT id,income,amount,at,title,note,account_id FROM entries",null)){while(c.moveToNext()){Ledger.Entry e=new Ledger.Entry(c.getLong(0),c.getInt(1)==1,c.getLong(2),LocalDateTime.parse(c.getString(3)),c.getString(4),c.getString(5),c.isNull(6)?0:c.getLong(6));if(e.income)e.category="其他";d.entries.add(e);}}d.sort();return d;
  }
- public void save(Ledger.Data d){synchronized(LedgerStore.class){validate(d);ContentValues v=new ContentValues();v.put("id",1);v.put("json",encode(d));if(getWritableDatabase().insertWithOnConflict("state",null,v,SQLiteDatabase.CONFLICT_REPLACE)<0)throw new IllegalStateException("本地保存失败");}}
+ public void save(Ledger.Data d){synchronized(LedgerStore.class){
+  validate(d);String json=encode(d);SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+  try{
+   db.delete("state_chunks","id=1",null);
+   for(int offset=0,part=0;offset<json.length();part++){
+    int end=Math.min(json.length(),offset+CHUNK_CHARS);
+    if(end<json.length()&&Character.isHighSurrogate(json.charAt(end-1)))end--;
+    ContentValues chunk=new ContentValues();chunk.put("id",1);chunk.put("part",part);chunk.put("json",json.substring(offset,end));
+    db.insertOrThrow("state_chunks",null,chunk);offset=end;
+   }
+   db.delete("state","id=1",null);db.setTransactionSuccessful();
+  }finally{db.endTransaction();}
+ }}
  public void updateQuote(long id,String code,FundClient.Quote quote,String error){
   synchronized(LedgerStore.class){Ledger.Data current=load();for(Ledger.Fund f:current.funds)if(f.id==id&&f.code.equals(code)){if(quote!=null){f.name=quote.name;f.nav=quote.nav;f.previous=quote.previous;f.navDate=quote.date;}f.error=error==null?"行情更新失败":error;save(current);break;}}
  }
  public void updateFundMarket(long id,String code,FundClient.Quote quote,String error,TradingCalendar calendar){
-  synchronized(LedgerStore.class){Ledger.Data current=load();for(Ledger.Fund f:current.funds)if(f.id==id&&f.code.equals(code)){
+  updateFundMarket(id,code,quote,error,calendar,epoch());
+ }
+ public void updateFundMarket(long id,String code,FundClient.Quote quote,String error,TradingCalendar calendar,long expectedEpoch){
+  synchronized(LedgerStore.class){if(dataEpoch!=expectedEpoch)return;Ledger.Data current=load();for(Ledger.Fund f:current.funds)if(f.id==id&&f.code.equals(code)){
     if(quote!=null){f.name=quote.name;f.nav=quote.nav;f.previous=quote.previous;f.navDate=quote.date;f.fundType=quote.fundType;f.error="";f.updatedAt=LocalDateTime.now().toString();f.historyComplete=quote.complete;f.prices.putAll(quote.history);f.navReturns.putAll(quote.returns);f.dividends.putAll(quote.dividends);f.splits.putAll(quote.splits);FundEngine.resolve(f,calendar);}
     else f.error=error==null?"行情更新失败":error;save(current);break;
   }}
@@ -67,7 +93,7 @@ public final class LedgerStore extends SQLiteOpenHelper {
   if(d.categories.size()>100||new HashSet<>(d.categories).size()!=d.categories.size())throw new IllegalArgumentException("类别重复或超过100个");for(String c:d.categories)if(c.trim().isEmpty()||c.length()>30)throw new IllegalArgumentException("类别名称无效");
  }
  public String exportJson(){return encode(load());}
- public Ledger.Data parseBackup(String json){Ledger.Data d=decode(json);validate(d);return d;}
+ public Ledger.Data parseBackup(String json){if(json==null||json.length()>64*1024*1024)throw new IllegalArgumentException("备份文件无效或超过64MB");Ledger.Data d=decode(json);validate(d);return d;}
  static String encode(Ledger.Data d){try{
   JSONObject root=new JSONObject().put("format","yueji-backup").put("version",11).put("imports",ImportJournal.encode(d)).put("debts",DebtLedger.encode(d));JSONArray aa=new JSONArray(),ss=new JSONArray(),ee=new JSONArray(),hh=new JSONArray(),ff=new JSONArray();
   for(Ledger.Account a:d.accounts)aa.put(new JSONObject().put("id",a.id).put("name",a.name).put("type",a.type).put("opening",a.opening).put("created",a.created).put("deletedAt",a.deletedAt==null?JSONObject.NULL:a.deletedAt.toString()));
@@ -85,7 +111,9 @@ public final class LedgerStore extends SQLiteOpenHelper {
   root.put("settings",new JSONObject().put("day1",d.settings.checkDay1).put("day2",d.settings.checkDay2).put("reminderHour",d.settings.reminderHour).put("checkNotifications",d.settings.checkNotifications).put("fundNotifications",d.settings.fundNotifications).put("autoRefresh",d.settings.autoRefresh).put("lossOnly",d.settings.lossOnly).put("refreshMinutes",d.settings.refreshMinutes));return root.put("accounts",aa).put("snapshots",ss).put("entries",ee).put("history",hh).put("funds",ff).put("categories",new JSONArray(d.categories)).put("categoryIcons",new JSONObject(d.categoryIcons)).toString(2);
  }catch(JSONException e){throw new IllegalArgumentException("数据编码失败",e);}}
  static Ledger.Data decode(String json){try{
-  JSONObject root=new JSONObject(json);if(!"yueji-backup".equals(root.getString("format"))||root.getInt("version")<1||root.getInt("version")>11)throw new IllegalArgumentException("不支持的备份版本");Ledger.Data d=new Ledger.Data();ImportJournal.decode(d,root.optJSONArray("imports"));DebtLedger.decode(d,root.optJSONArray("debts"));JSONArray aa=root.getJSONArray("accounts"),ss=root.getJSONArray("snapshots"),ee=root.getJSONArray("entries");
+  JSONObject root=new JSONObject(json);if(!"yueji-backup".equals(root.getString("format"))||root.getInt("version")<1||root.getInt("version")>11)throw new IllegalArgumentException("不支持的备份版本");
+  for(String key:new String[]{"accounts","snapshots","entries","history","funds","banks","watchFunds","watchGroups","imports","debts","categories"})if(root.has(key)&&!(root.get(key) instanceof JSONArray))throw new IllegalArgumentException(key+" 必须是列表");
+  Ledger.Data d=new Ledger.Data();ImportJournal.decode(d,root.optJSONArray("imports"));DebtLedger.decode(d,root.optJSONArray("debts"));JSONArray aa=root.getJSONArray("accounts"),ss=root.getJSONArray("snapshots"),ee=root.getJSONArray("entries");
   for(int i=0;i<aa.length();i++){JSONObject o=aa.getJSONObject(i);Ledger.Account a=new Ledger.Account(o.getLong("id"),o.getString("name"),o.getString("type"));if(o.has("created")){a.created=LocalDateTime.parse(o.getString("created"));a.opening=o.getLong("opening");}if(!o.isNull("deletedAt"))a.deletedAt=LocalDateTime.parse(o.getString("deletedAt"));d.accounts.add(a);}
   for(int i=0;i<ss.length();i++){JSONObject o=ss.getJSONObject(i);Ledger.Snapshot s=new Ledger.Snapshot(o.getLong("id"),LocalDateTime.parse(o.getString("at")),o.optString("note"));s.partial=o.optBoolean("partial");s.cashGenerated=o.optBoolean("cashGenerated");JSONArray cash=o.optJSONArray("cashAccounts");if(cash!=null)for(int k=0;k<cash.length();k++)s.cashAccounts.add(cash.getLong(k));JSONObject b=o.getJSONObject("balances");Iterator<String> keys=b.keys();while(keys.hasNext()){String k=keys.next();s.balances.put(Long.parseLong(k),b.getLong(k));}d.snapshots.add(s);}d.sort();
   for(Ledger.Account a:d.accounts)if(a.created==null)for(Ledger.Snapshot s:d.snapshots)if(s.balances.containsKey(a.id)){a.created=s.at;a.opening=s.balances.get(a.id);break;}

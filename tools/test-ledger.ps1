@@ -41,7 +41,7 @@ $rText+="}`n"
 
 $sources = @(Get-ChildItem -Path (Join-Path $projectDir 'app\src\main\java\cn\yueji\balance') -Filter '*.java' | ForEach-Object { $_.FullName }) + (Join-Path $stubDir 'R.java')
 $testFiles = Get-ChildItem -Path (Join-Path $projectDir 'app\src\test\java\cn\yueji\balance') -Filter '*Test.java'
-$tests = $testFiles | ForEach-Object { $_.FullName }
+$tests = Get-ChildItem -Path (Join-Path $projectDir 'app\src\test\java\cn\yueji\balance') -Filter '*.java' | ForEach-Object { $_.FullName }
 $compilerArgs=@('-encoding','UTF-8','-nowarn','-cp',('"'+$compileClasspath.Replace('\','/')+'"'),'-d',('"'+$compiledDir.Replace('\','/')+'"'))+@(($sources+$tests) | ForEach-Object {'"'+$_.Replace('\','/')+'"'})
 $argumentFile=Join-Path $compiledDir 'javac.args'
 [IO.File]::WriteAllLines($argumentFile,[string[]]$compilerArgs,[Text.UTF8Encoding]::new($false))
