@@ -19,11 +19,13 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class V475UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;final V43UiTest h=old.h;
-    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",24).commit();t.context.getSharedPreferences("market-refresh",0).edit().clear().commit();}
+    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",25).commit();t.context.getSharedPreferences("market-refresh",0).edit().clear().commit();}
     @After public void after()throws Exception{old.after();}
     FundClient.Quote quote(String code,LocalDate date){FundClient.Quote q=new FundClient.Quote();q.code=code;q.name="基金"+code;q.date=date.toString();q.fundType="债券型";q.nav=new BigDecimal("1.10");q.previous=new BigDecimal("1.09");q.history.put(date.minusDays(1),q.previous);q.history.put(date,q.nav);q.complete=true;return q;}
     @Test public void automaticRefreshDeduplicatesSkipsPublishedAndManualAlwaysWorks(){
-        Ledger.Data data=old.sample();data.settings.autoRefresh=true;data.settings.refreshMinutes=120;
+        Ledger.Data data=new Ledger.Data();data.settings.autoRefresh=true;data.settings.refreshMinutes=120;
+        for(String code:new String[]{"000001","000002"}){Ledger.Fund fund=new Ledger.Fund();fund.id=Long.parseLong(code);fund.code=code;fund.name="测试"+code;fund.shares=BigDecimal.ONE;data.funds.add(fund);}
+        for(int i=0;i<5;i++){String code=String.format(Locale.ROOT,"%06d",6431+i);data.watchFunds.add(new Ledger.WatchFund(code,"测试"+code));}
         Ledger.WatchFund duplicate=WatchAnalytics.owned(data.funds.get(0));data.watchFunds.add(duplicate);t.store.save(data);
         LocalDate date=LocalDate.of(2026,10,26);List<String> called=new ArrayList<>();MarketRefresh.Fetcher fetch=code->{called.add(code);return quote(code,date);};
         MarketRefresh.run(t.context,true,true,null,fetch,()->date.atTime(14,59));assertTrue(called.isEmpty());
@@ -98,7 +100,7 @@ public class V475UiTest {
                 assertTrue("full long amount fits",number.getPaint().measureText(number.getText().toString())<=number.getWidth()-number.getPaddingLeft()-number.getPaddingRight()+1);
                 if(i==3)assertEquals(Gravity.RIGHT,number.getGravity()&Gravity.HORIZONTAL_GRAVITY_MASK);
             }
-            t.app.go("fund_watchlist");LinearLayout values=t.app.row();t.app.watchScreens.value(values,"+123.45%",1);assertEquals(t.app.dp(72),values.getChildAt(0).getLayoutParams().width);
+            t.app.go("fund_watchlist");LinearLayout values=t.app.row();t.app.watchScreens.value(values,"+123.45%",1);assertEquals(t.app.watchScreens.metricWidth(),values.getChildAt(0).getLayoutParams().width);
         });old.shot("v475-compact-watch-columns.png");
     }
 }

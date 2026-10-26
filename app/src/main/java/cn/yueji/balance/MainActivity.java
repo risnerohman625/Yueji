@@ -689,7 +689,7 @@ public class MainActivity extends Activity {
         updates().about(card(body));
         for(int i=0;i<body.getChildCount();i++){View child=body.getChildAt(i);if(child.getLayoutParams() instanceof LinearLayout.LayoutParams){LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)child.getLayoutParams();lp.bottomMargin=Math.min(lp.bottomMargin,dp(8));child.setLayoutParams(lp);}}
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.5";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.6";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}

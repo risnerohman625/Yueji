@@ -65,7 +65,8 @@ public class V470UiTest {
     @Test public void detailMetricRowsUseEvenCenteredColumnsAndCalendarAge(){
         t.start(sample());t.ui(()->{t.app.watchFocus="006431";t.app.go("watch_detail");});
         t.ui(()->{
-            for(String[] labels:new String[][]{{"近1年涨跌幅","成立来涨跌幅","日涨跌幅\n2026-10-26","最新净值\n2026-10-26"},{"成立日期","距今","基金规模"},{"本时期涨跌幅","本时期最高下跌幅度"}}){
+            String navDate=t.app.watchScreens.find("006431").navDate;
+            for(String[] labels:new String[][]{{"近1年涨跌幅","成立来涨跌幅","日涨跌幅\n"+navDate,"最新净值\n"+navDate},{"成立日期","距今","基金规模"},{"本时期涨跌幅","本时期最高下跌幅度"}}){
                 int previous=-1,step=-1,width=-1;
                 for(String label:labels){ViewGroup column=(ViewGroup)h.desc(t.app.body,"自选详情指标"+label);assertNotNull(label,column);
                     if(width<0)width=column.getWidth();else assertEquals("equal metric column widths",width,column.getWidth(),2);

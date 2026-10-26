@@ -7,7 +7,7 @@ import android.widget.*;
 
 /** Foreground-only reading timer; leaving the activity pauses the required reading time. */
 public final class UsageGuideActivity extends Activity {
-    static final String REVISION="4.7.5-24";
+    static final String REVISION="4.7.6-25";
     long remaining=10000,last;boolean required,active;TextView done;
     final Handler handler=new Handler(Looper.getMainLooper());
     final Runnable tick=new Runnable(){public void run(){if(!active)return;long now=SystemClock.elapsedRealtime();remaining=Math.max(0,remaining-(now-last));last=now;done.setText(remaining>0?"请阅读 "+((remaining+999)/1000)+" 秒":"我已阅读，开始使用");done.setEnabled(remaining==0);handler.postDelayed(this,200);}};

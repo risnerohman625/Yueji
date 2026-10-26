@@ -40,14 +40,14 @@ final class BankScreens {
     void append(boolean history){
         long total=m.heldFundValue();
         for(BankLedger.Product p:sorted(history)){
-            LinearLayout card=m.card();card.setBackground(m.ripple(Ui.SURFACE,18));card.setContentDescription("银行理财"+p.id);
-            LinearLayout title=m.row();m.weight(title,new FundNameView(m,p.name,()->{focus=p.id;mode=0;chart=0;m.go("bank_detail");}));card.addView(title);m.gap(card,6);
+            LinearLayout card=m.card();card.setBackground(m.ripple(Ui.SURFACE,18));card.setContentDescription("银行理财"+p.id);card.setPadding(m.dp(12),m.dp(8),m.dp(12),m.dp(8));
+            LinearLayout title=m.row();m.weight(title,new FundNameView(m,p.name,()->{focus=p.id;mode=0;chart=0;m.go("bank_detail");}));card.addView(title);m.gap(card,3);
             LinearLayout metrics=m.row();metric(metrics,"持有金额",m.money(BankLedger.balance(p)),Ui.INK);
             Long previous=BankLedger.week(p,BankLedger.monday(FundEngine.now().toLocalDate()).minusWeeks(1)),current=BankLedger.week(p,BankLedger.monday(FundEngine.now().toLocalDate()));
             metric(metrics,"上周收益",previous==null?"待更新":m.signed(previous),previous==null?Ui.MUTED:color(previous));
             metric(metrics,"本周收益",current==null?"待更新":m.signed(current),current==null?Ui.MUTED:color(current));
-            metric(metrics,"累计收益",m.signed(BankLedger.profit(p)),color(BankLedger.profit(p)));card.addView(metrics);m.gap(card,8);
-            LinearLayout footer=m.row();m.weight(footer,m.fundScreens.holdingStamp(total>0?String.format(Locale.CHINA,"持仓占比 %.1f%%",BankLedger.balance(p)*100.0/total):"","数据 "+BankAccounting.date(BankLedger.latest(p))+(p.removed()?" · 已删除":"")));footer.addView(m.ui.tag(p.tag,Ui.ACCENT_DEEP,Ui.ACCENT_SOFT));card.addView(footer);
+            metric(metrics,"累计收益",m.signed(BankLedger.profit(p)),color(BankLedger.profit(p)));card.addView(metrics);m.gap(card,3);
+            LinearLayout footer=m.row();m.weight(footer,m.fundScreens.holdingStamp(total>0?String.format(Locale.CHINA,"持仓占比 %.1f%%",BankLedger.balance(p)*100.0/total):"","数据 "+BankAccounting.date(BankLedger.latest(p))+(p.removed()?" · 已删除":"")));if(!p.tag.isEmpty()){TextView tag=m.ui.tag(p.tag,Ui.ACCENT_DEEP,Ui.ACCENT_SOFT);tag.setMaxWidth(m.dp(100));tag.setMaxLines(2);footer.addView(tag);}card.addView(footer);
             card.setOnClickListener(v->{focus=p.id;mode=0;chart=0;m.go("bank_detail");});
             SwipeRow row=history?new SwipeRow(m,card,
                 new SwipeRow.Action(p.hidden?"显示":"隐藏","隐藏银行理财"+p.id,Ui.AMBER,false,()->mutate(p.id,x->x.hidden=!x.hidden)),
@@ -57,11 +57,11 @@ final class BankScreens {
                 new SwipeRow.Action("标签","银行理财标签"+p.id,Ui.AMBER,false,()->tag(p)),
                 new SwipeRow.Action("编辑","银行理财记录"+p.id,Ui.ACCENT,false,()->start(p.id)));
             row.setTag(PortfolioOrder.bank(p));
-            if(p.hidden||p.removed())SwipeRow.dim(card,.65f);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=m.dp(12);m.body.addView(row,lp);
+            if(p.hidden||p.removed())SwipeRow.dim(card,.65f);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=m.dp(6);m.body.addView(row,lp);
         }
     }
     int color(long amount){return m.fundScreens.color(amount);}
-    void metric(LinearLayout row,String label,String value,int color){m.ui.metricCell(row,label,value,color,14,26);}
+    void metric(LinearLayout row,String label,String value,int color){m.fundScreens.compactMetric(row,label,value,color);}
     interface Change{void apply(BankLedger.Product p);}
     void mutate(long id,Change change){try{Ledger.Data copy=m.copy();BankLedger.Product p=BankLedger.find(copy,id);if(p==null)throw new IllegalArgumentException("产品不存在");change.apply(p);m.commit(copy);m.render();}catch(Exception e){m.error(e);}}
     void purge(BankLedger.Product p){if(!p.removed()){m.toast("请先从首页删除");return;}AppIcons.dialog(m).setTitle("永久删除产品及收益交易记录？").setNegativeButton("取消",null).setPositiveButton("删除",(d,w)->{Ledger.Data copy=m.copy();copy.banks.removeIf(x->x.id==p.id);m.commit(copy);m.render();}).show();}

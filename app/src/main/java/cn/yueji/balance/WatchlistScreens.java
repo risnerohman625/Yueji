@@ -29,7 +29,7 @@ final class WatchlistScreens {
     AlertDialog progress;
     void dispose(){generation++;if(progress!=null)progress.dismiss();progress=null;}
     void show(){
-        m.top("自选基金",null,null);toolbar();tabs();table();
+        m.body.setPadding(m.dp(5),m.body.getPaddingTop(),m.dp(5),m.body.getPaddingBottom());m.top("自选基金",null,null);toolbar();tabs();table();
         if(visible().isEmpty())m.body.addView(m.text("本组暂无基金",12,Ui.MUTED,false));
     }
     void toolbar(){
@@ -43,7 +43,7 @@ final class WatchlistScreens {
     void tabs(){
         HorizontalScrollView scroll=new HorizontalScrollView(m);scroll.setHorizontalScrollBarEnabled(false);LinearLayout row=m.row();List<String> names=new ArrayList<>(Arrays.asList("全部","持有"));for(Ledger.WatchGroup group:m.data.watchGroups)names.add(group.name);
         if(!names.contains(activeGroup))activeGroup="全部";
-        for(String name:names){TextView t=m.action(name,()->{activeGroup=name;m.render();});t.setTextColor(activeGroup.equals(name)?Ui.ACCENT_DEEP:Ui.MUTED);if(activeGroup.equals(name))t.setTypeface(Ui.BOLD);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-2,m.dp(39));p.rightMargin=m.dp(5);row.addView(t,p);}row.addView(m.action("自定义",this::manageGroups));scroll.addView(row);m.body.addView(scroll);m.gap(m.body,14);
+        for(String name:names){TextView t=m.action(name+"("+groupCount(name)+")",()->{activeGroup=name;m.render();});t.setTextColor(activeGroup.equals(name)?Ui.ACCENT_DEEP:Ui.MUTED);if(activeGroup.equals(name))t.setTypeface(Ui.BOLD);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-2,m.dp(39));p.rightMargin=m.dp(5);row.addView(t,p);}row.addView(m.action("+自定义",this::manageGroups));scroll.addView(row);m.body.addView(scroll);m.gap(m.body,14);
     }
     List<Ledger.WatchFund> all(){
         LinkedHashMap<String,Ledger.WatchFund> result=new LinkedHashMap<>();
@@ -61,20 +61,33 @@ final class WatchlistScreens {
         return new ArrayList<>(result.values());
     }
     Ledger.WatchFund find(String code){for(Ledger.WatchFund f:all())if(f.code.equals(code))return f;return null;}
+    boolean inGroup(Ledger.WatchFund fund,String name){
+        if("全部".equals(name))return true;
+        if("持有".equals(name))for(Ledger.Fund owned:m.data.funds)if(!owned.removed()&&owned.code.equals(fund.code))return true;
+        for(Ledger.WatchGroup group:m.data.watchGroups)if(group.name.equals(name)&&group.codes.contains(fund.code))return true;
+        return false;
+    }
+    int groupCount(String name){
+        Set<String> codes=new HashSet<>();
+        for(Ledger.Fund fund:m.data.funds)if(!fund.removed())codes.add(fund.code);
+        if("持有".equals(name))return codes.size();
+        for(Ledger.WatchFund fund:m.data.watchFunds)codes.add(fund.code);
+        if("全部".equals(name))return codes.size();
+        for(Ledger.WatchGroup group:m.data.watchGroups)if(group.name.equals(name)){Set<String> members=new HashSet<>(group.codes);members.retainAll(codes);return members.size();}
+        return 0;
+    }
     List<Ledger.WatchFund> visible(){
-        List<Ledger.WatchFund> result=new ArrayList<>();for(Ledger.WatchFund fund:all()){
-            boolean yes="全部".equals(activeGroup);if("持有".equals(activeGroup))for(Ledger.Fund f:m.data.funds)if(!f.removed()&&f.code.equals(fund.code))yes=true;
-            for(Ledger.WatchGroup g:m.data.watchGroups)if(g.name.equals(activeGroup)&&g.codes.contains(fund.code))yes=true;if(yes)result.add(fund);
-        }
+        List<Ledger.WatchFund> result=new ArrayList<>();for(Ledger.WatchFund fund:all())if(inGroup(fund,activeGroup))result.add(fund);
         Map<String,WatchAnalytics.Result> metrics=new HashMap<>();for(Ledger.WatchFund f:result)metrics.put(f.code,metrics(f));
         Comparator<Ledger.WatchFund> by=Comparator.comparingDouble(f->{WatchAnalytics.Result r=metrics.get(f.code);return m.data.watchSort==1?r.sharpe:m.data.watchSort==2?r.drawdown:r.change;});if(m.data.watchDescending)by=by.reversed();result.sort(by.thenComparing(f->f.code));return result;
     }
     WatchAnalytics.Result metrics(Ledger.WatchFund f){return WatchAnalytics.calculate(f,range,FundEngine.now().toLocalDate());}
+    int metricWidth(){int available=m.getResources().getDisplayMetrics().widthPixels-m.body.getPaddingLeft()-m.body.getPaddingRight()-m.dp(139);return Math.min(m.dp(72),Math.max(m.dp(56),available/3));}
     void table(){
         LinearLayout shell=m.row();shell.setGravity(Gravity.TOP);shell.setBackground(Ui.round(Ui.SURFACE,m.dp(15)));LinearLayout names=m.col(),numbers=m.col();
         TextView title=m.text("基金名称 / 代码",11,Ui.MUTED,true);title.setGravity(Gravity.CENTER_VERTICAL);title.setPadding(m.dp(8),0,m.dp(4),0);names.addView(title,new LinearLayout.LayoutParams(-1,m.dp(46)));
         LinearLayout headers=m.row();String[] labels={"涨跌幅","夏普比率","最大回撤","最新净值","日涨跌幅"};
-        for(int i=0;i<labels.length;i++){final int key=i;LinearLayout h=m.row();h.setGravity(Gravity.CENTER);TextView label=m.text(labels[i],11,Ui.MUTED,true);h.addView(label);if(i<3){LinearLayout arrows=m.col();for(int direction=0;direction<2;direction++){final boolean desc=direction==1;TextView arrow=m.text(desc?"▼":"▲",10,m.data.watchSort==key&&m.data.watchDescending==desc?Ui.ACCENT:Ui.FAINT,true);arrow.setGravity(Gravity.CENTER);arrow.setContentDescription(labels[i]+(desc?"递减排序":"递增排序"));arrow.setOnClickListener(v->sortBy(key,desc));arrows.addView(arrow,new LinearLayout.LayoutParams(m.dp(22),m.dp(13)));}h.addView(arrows);}headers.addView(h,new LinearLayout.LayoutParams(m.dp(72),m.dp(46)));}numbers.addView(headers);
+        for(int i=0;i<labels.length;i++){final int key=i;LinearLayout h=m.row();h.setGravity(Gravity.CENTER);TextView label=m.text(labels[i],11,Ui.MUTED,true);label.setPadding(0,0,0,0);h.addView(label);if(i<3){LinearLayout arrows=m.col();for(int direction=0;direction<2;direction++){final boolean desc=direction==1;TextView arrow=m.text(desc?"▼":"▲",10,m.data.watchSort==key&&m.data.watchDescending==desc?Ui.ACCENT:Ui.FAINT,true);arrow.setGravity(Gravity.CENTER);arrow.setContentDescription(labels[i]+(desc?"递减排序":"递增排序"));arrow.setOnClickListener(v->sortBy(key,desc));arrows.addView(arrow,new LinearLayout.LayoutParams(m.dp(13),m.dp(13)));}h.addView(arrows);}headers.addView(h,new LinearLayout.LayoutParams(metricWidth(),m.dp(46)));}numbers.addView(headers);
         for(Ledger.WatchFund fund:visible()){
             LinearLayout n=m.row();n.setGravity(Gravity.CENTER_VERTICAL);n.setPadding(m.dp(5),m.dp(6),m.dp(4),m.dp(6));
             if(selectionMode){CheckBox check=new CheckBox(m);check.setButtonTintList(android.content.res.ColorStateList.valueOf(Ui.ACCENT));check.setContentDescription("选择基金"+fund.code);check.setChecked(selectedCodes.contains(fund.code));check.setOnCheckedChangeListener((button,checked)->{if(checked)selectedCodes.add(fund.code);else selectedCodes.remove(fund.code);});n.addView(check,new LinearLayout.LayoutParams(m.dp(30),m.dp(40)));}
@@ -84,7 +97,7 @@ final class WatchlistScreens {
         }
         shell.addView(names,new LinearLayout.LayoutParams(m.dp(139),-2));HorizontalScrollView horizontal=new HorizontalScrollView(m);horizontal.setHorizontalScrollBarEnabled(true);horizontal.setContentDescription("自选指标列表，左右滑动");horizontal.addView(numbers);shell.addView(horizontal,new LinearLayout.LayoutParams(0,-2,1));m.body.addView(shell);m.gap(m.body,8);
     }
-    void value(LinearLayout row,String text,double sign){TextView v=m.fit(m.text(text,14,Double.isNaN(sign)?Ui.INK:sign>0?Ui.RED:sign<0?Ui.GREEN:Ui.MUTED,true),14,9);v.setGravity(Gravity.CENTER);row.addView(v,new LinearLayout.LayoutParams(m.dp(72),m.dp(50)));}
+    void value(LinearLayout row,String text,double sign){TextView v=m.fit(m.text(text,14,Double.isNaN(sign)?Ui.INK:sign>0?Ui.RED:sign<0?Ui.GREEN:Ui.MUTED,true),14,9);v.setGravity(Gravity.CENTER);row.addView(v,new LinearLayout.LayoutParams(metricWidth(),m.dp(50)));}
     double daily(Ledger.WatchFund f){try{BigDecimal value=f.returns.get(LocalDate.parse(f.navDate));if(value!=null)return value.doubleValue();}catch(Exception ignored){}return f.previous.signum()==0?0:f.nav.subtract(f.previous).divide(f.previous,10,RoundingMode.HALF_UP).doubleValue()*100;}
     String percent(double value){return String.format(Locale.CHINA,"%+.2f%%",value);}
     void sortBy(int key,boolean descending){Ledger.Data c=m.copy();c.watchSort=key;c.watchDescending=descending;m.commit(c);m.render();}
@@ -98,23 +111,36 @@ final class WatchlistScreens {
     void load(List<String> codes){load(codes,true);}
     void load(List<String> codes,boolean adding){
         if(codes.isEmpty()){if(pull!=null)pull.setRefreshing(false);return;}
+        List<String> requested=new ArrayList<>();int existing=0;Ledger.Data latest=m.store.load();
+        for(String code:new LinkedHashSet<>(codes)){if(adding&&containsCode(latest,code))existing++;else requested.add(code);}
+        if(requested.isEmpty()){UiBanner.show(m,"该基金已在自选列表",false,true);return;}
+        final int already=existing;
         dispose();int token=generation;long epoch=LedgerStore.epoch();
         progress=AppIcons.dialog(m).setTitle("更新自选基金").setMessage("正在读取基金资料…").setNegativeButton("取消",(d,w)->dispose()).create();
         progress.setOnCancelListener(d->dispose());progress.show();
         new Thread(()->{
             List<FundClient.Quote> quotes=new ArrayList<>();List<String> failures=new ArrayList<>();
-            for(String code:codes){
+            for(String code:requested){
                 if(!live(token))return;
                 try{synchronized(MarketRefresh.LOCK){quotes.add(FundClient.fetchHistory(code));}}
                 catch(Exception e){failures.add(code+"："+NetworkIo.message(e));if(NetworkIo.connectivity(e))break;}
             }
             m.runOnUiThread(()->{
                 if(!live(token))return;progress.dismiss();progress=null;if(pull!=null)pull.setRefreshing(false);
-                try{if(!quotes.isEmpty()){synchronized(LedgerStore.class){Ledger.Data current=m.store.load();for(FundClient.Quote quote:quotes)apply(current,quote);for(FundClient.Quote quote:quotes)MarketRefresh.apply(current,quote,m.fundScreens.calendar());m.commit(current,epoch);}m.render();}if(adding)UiBanner.show(m,failures.isEmpty()?"导入成功："+quotes.size()+"只基金":quotes.isEmpty()?"导入失败：请检查代码、网络或稍后重试":"部分导入成功，请检查网络后重试",!failures.isEmpty(),true);else if(!failures.isEmpty())m.networkProblem(String.join("\n",failures));}
+                try{
+                    int added=0,duplicates=already;
+                    if(!quotes.isEmpty()){
+                        synchronized(LedgerStore.class){Ledger.Data current=m.store.load();for(FundClient.Quote quote:quotes){if(adding&&containsCode(current,quote.code)){duplicates++;continue;}apply(current,quote);MarketRefresh.apply(current,quote,m.fundScreens.calendar());added++;}if(added>0)m.commit(current,epoch);}
+                        m.render();
+                    }
+                    if(adding)UiBanner.show(m,importMessage(added,duplicates,failures.size()),!failures.isEmpty(),true);else if(!failures.isEmpty())m.networkProblem(String.join("\n",failures));
+                }
                 catch(Exception e){if(adding)UiBanner.show(m,"导入失败："+e.getMessage(),true,true);else m.error(e);}
             });
         },"watchlist-market").start();
     }
+    static boolean containsCode(Ledger.Data data,String code){for(Ledger.WatchFund fund:data.watchFunds)if(fund.code.equals(code))return true;for(Ledger.Fund fund:data.funds)if(!fund.removed()&&fund.code.equals(code))return true;return false;}
+    static String importMessage(int added,int existing,int failed){if(added==0&&failed==0&&existing>0)return "该基金已在自选列表";if(added==0&&failed>0)return "导入失败：请检查代码、网络或稍后重试";return "导入成功："+added+"只基金"+(existing>0?"，"+existing+"只已在自选列表":"")+(failed>0?"，部分失败请重试":"");}
     void apply(Ledger.Data c,FundClient.Quote q){Ledger.WatchFund f=null;for(Ledger.WatchFund w:c.watchFunds)if(w.code.equals(q.code))f=w;if(f==null){f=new Ledger.WatchFund(q.code,q.name);c.watchFunds.add(f);}f.name=q.name;f.nav=q.nav;f.previous=q.previous;f.navDate=q.date;f.fundType=q.fundType;f.prices.putAll(q.history);f.returns.putAll(q.returns);f.historyComplete=q.complete;f.profile.inferLock(q.name);for(Ledger.WatchGroup group:c.watchGroups)if(group.name.equals(activeGroup))group.codes.add(q.code);}
     void refresh(){m.refreshFunds();}
     void manageGroups(){if(m.data.watchGroups.isEmpty()){groupEditor(null);return;}String[] names=new String[m.data.watchGroups.size()+1];names[0]="＋ 新建分组";for(int i=0;i<m.data.watchGroups.size();i++)names[i+1]=m.data.watchGroups.get(i).name;AppIcons.dialog(m).setTitle("管理自选分组").setItems(names,(d,w)->groupEditor(w==0?null:m.data.watchGroups.get(w-1))).setNegativeButton("关闭",null).show();}

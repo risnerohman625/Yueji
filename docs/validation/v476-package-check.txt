@@ -1,0 +1,17 @@
+{
+  "versionName": "4.7.6",
+  "versionCode": 25,
+  "package": "cn.yueji.balance",
+  "apkBytes": 1733140,
+  "sha256": "f17b8224cb4da0c2dfddcb4e033347fc95e823129767fd7b9f2cdab50cce4007",
+  "certificateSha256": "52326c1c3837684150e996b3c6a0e007d19c78e70de397b7bad82d5e48126915",
+  "dataTests": 328,
+  "deviceTests": 53,
+  "ocrPayload": false,
+  "bundledLedger": false,
+  "publicHistoryFixtureShips": false,
+  "phoneMatrix": "1260x2800 at densities 480/560/600: first three columns fit including percent signs; header group centers match numeric centers",
+  "duplicateImport": "existing code reports already-in-list without a network request or ledger/group changes",
+  "GiteeReleaseAuth": "HTTP 401: Access token does not exist; user notified in chat",
+  "physicalDevice": "not tested; display verified on emulator"
+}
