@@ -3,14 +3,13 @@ package cn.yueji.balance;
 import android.content.Context;
 import java.time.*;
 
-/** Automatic work follows Shanghai exchange sessions; manual imports and refresh remain available. */
+/** Automatic NAV publication polling runs after the Shanghai close, not during trading. */
 final class MarketSession {
     static final int[] INTERVALS={15,30,60,120,240,360};
     static boolean open(TradingCalendar calendar,LocalDateTime beijing){
         if(!calendar.open(beijing.toLocalDate()))return false;
         LocalTime time=beijing.toLocalTime();
-        return !time.isBefore(LocalTime.of(9,30))&&time.isBefore(LocalTime.of(11,30))||
-            !time.isBefore(LocalTime.of(13,0))&&time.isBefore(LocalTime.of(15,0));
+        return !time.isBefore(LocalTime.of(15,0));
     }
     static boolean open(Context context){
         LocalDateTime now=FundEngine.now();TradingCalendar calendar=new TradingCalendar();calendar.load(context,now.getYear());return open(calendar,now);

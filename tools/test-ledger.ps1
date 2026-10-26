@@ -47,6 +47,8 @@ $argumentFile=Join-Path $compiledDir 'javac.args'
 [IO.File]::WriteAllLines($argumentFile,[string[]]$compilerArgs,[Text.UTF8Encoding]::new($false))
 & "$javaDir\javac.exe" '-J-Dfile.encoding=UTF-8' '-J-Dstdout.encoding=UTF-8' '-J-Dstderr.encoding=UTF-8' "@$argumentFile"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$resourcesDir = Join-Path $projectDir 'app\src\test\resources'
+if (Test-Path -LiteralPath $resourcesDir) { Get-ChildItem -LiteralPath $resourcesDir | Copy-Item -Destination $compiledDir -Recurse -Force }
 $classes = $testFiles | ForEach-Object { "cn.yueji.balance.$($_.BaseName)" }
 & "$javaDir\java.exe" '-Dfile.encoding=UTF-8' '-Dstdout.encoding=UTF-8' '-Dstderr.encoding=UTF-8' -cp "$compiledDir;$jsonJar;$androidJar;$junitJar;$hamcrestJar" org.junit.runner.JUnitCore @classes
 exit $LASTEXITCODE

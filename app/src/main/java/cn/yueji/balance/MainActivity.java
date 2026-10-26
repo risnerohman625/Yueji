@@ -22,7 +22,8 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-public final class MainActivity extends Activity {
+public class MainActivity extends Activity {
+    @Override public android.content.SharedPreferences getPreferences(int mode){return getSharedPreferences("MainActivity",mode);}
     static final int TAB_ACCOUNTS=0,TAB_FLOW=1,TAB_FUNDS=2,TAB_SETTINGS=3;
     static int BG=Ui.BG,INK=Ui.INK,MUTED=Ui.MUTED,PURPLE=Ui.PURPLE,PALE=Ui.PURPLE_SOFT,LILAC=0xFFE3D8F5,WHITE=Ui.SURFACE,RED=Ui.RED,EXP=Ui.GREEN,AMBER=Ui.AMBER;
     static final DateTimeFormatter TIME=DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -51,6 +52,9 @@ public final class MainActivity extends Activity {
     long openImportBatch=-1;
     DebtScreens debtScreens;
     boolean fundPageVisited;
+    String firstMarketVisit="";
+    final Handler marketHandler=new Handler(Looper.getMainLooper());
+    final Runnable marketTick=new Runnable(){public void run(){if(data!=null&&data.settings.autoRefresh&&MarketSession.open(MainActivity.this))refreshFunds(true);marketHandler.postDelayed(this,60_000);}};
     int assetTab=2,assetPeriod;
     TextView refreshPermissionText;
 
@@ -138,11 +142,11 @@ public final class MainActivity extends Activity {
         if("check".equals(intent.getStringExtra("openPage"))){tab=TAB_ACCOUNTS;page="check";snapshotEditing=null;backStack.clear();backStack.push("");intent.removeExtra("openPage");}
     }
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleDestination(intent);render();if(tab==TAB_FUNDS&&page.isEmpty()&&data.settings.autoRefresh)autoRefreshFunds();}
-    @Override protected void onPause(){super.onPause();AppLock.markBackground();}
+    @Override protected void onPause(){marketHandler.removeCallbacks(marketTick);super.onPause();AppLock.markBackground();}
     AppUpdates appUpdates;
     AppUpdates updates(){if(appUpdates==null)appUpdates=new AppUpdates(this);return appUpdates;}
-    @Override protected void onResume(){super.onResume();getWindow().getDecorView().post(()->{if(!isFinishing()&&activeLock==null)updates().startup();});if(data!=null&&data.settings.appLockEnabled&&AppLock.shouldLockNow(this))render();}
-    @Override protected void onDestroy(){if(appUpdates!=null)appUpdates.dispose();if(activeLock!=null)activeLock.dismiss();if(networkDialog!=null)networkDialog.dismiss();if(iconChooser!=null)iconChooser.dismiss();if(watchScreens!=null)watchScreens.dispose();store.close();super.onDestroy();}
+    @Override protected void onResume(){super.onResume();marketHandler.removeCallbacks(marketTick);marketHandler.postDelayed(marketTick,60_000);getWindow().getDecorView().post(()->{if(!isFinishing()&&activeLock==null)updates().startup();if(tab==TAB_FUNDS||page.equals("fund_watchlist"))autoRefreshFunds();});if(data!=null&&data.settings.appLockEnabled&&AppLock.shouldLockNow(this))render();}
+    @Override protected void onDestroy(){marketHandler.removeCallbacks(marketTick);if(appUpdates!=null)appUpdates.dispose();if(activeLock!=null)activeLock.dismiss();if(networkDialog!=null)networkDialog.dismiss();if(iconChooser!=null)iconChooser.dismiss();if(watchScreens!=null)watchScreens.dispose();store.close();super.onDestroy();}
     void showLock(LockOverlay.Mode mode,Runnable done,Runnable cancel){
         if(activeLock!=null)return;
         activeLock=LockOverlay.show(this,mode,()->{activeLock=null;done.run();},()->{activeLock=null;cancel.run();});
@@ -279,7 +283,7 @@ public final class MainActivity extends Activity {
             case "check":checkPage();break;case "account_history":accountHistory();break;case "month_detail":MonthScreen.show(this,monthFocus);break;
             case "income_detail":incomeDetail();break;case "income_category":incomeCategory();break;case "large_detail":entryDetail(Ledger.LARGE);break;case "reimburse_detail":entryDetail(Ledger.REIMBURSE);break;
             case "income_form":entryForm(Ledger.INCOME);break;case "large_form":entryForm(Ledger.LARGE);break;case "reimburse_form":entryForm(Ledger.REIMBURSE);break;
-            case "fund_detail":fundScreens.detail(data,fundFocus,false);break;case "fund_total":fundScreens.detail(data,0,true);break;case "fund_profit":fundScreens.profitList(data);break;case "fund_trades":fundScreens.trades(data,fundFocus);break;case "fund_watchlist":watchScreens.show();break;case "watch_detail":watchScreens.detail(watchFocus);break;
+            case "fund_detail":fundScreens.detail(data,fundFocus,false);break;case "fund_total":fundScreens.detail(data,0,true);break;case "fund_profit":fundScreens.profitList(data);break;case "fund_trades":fundScreens.trades(data,fundFocus);break;case "fund_watchlist":watchScreens.show();body.post(this::autoRefreshFunds);break;case "watch_detail":watchScreens.detail(watchFocus);break;
             case "bank_review":bankScreens.review();break;case "bank_detail":bankScreens.detail();break;case "bank_records":bankScreens.records();break;case "bank_flows":bankScreens.flows();break;case "bank_income_preview":bankScreens.incomePreview();break;
             case "history":historyPage();break;case "import_preview":importPreview();break;case "investment_transfers":page="fund_watchlist";watchScreens.show();break;
             case "import_records":new ImportScreens(this,ImportJournal.RECORDS).show();break;
@@ -685,7 +689,7 @@ public final class MainActivity extends Activity {
         updates().about(card(body));
         for(int i=0;i<body.getChildCount();i++){View child=body.getChildAt(i);if(child.getLayoutParams() instanceof LinearLayout.LayoutParams){LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)child.getLayoutParams();lp.bottomMargin=Math.min(lp.bottomMargin,dp(8));child.setLayoutParams(lp);}}
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.4";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.5";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}
@@ -694,8 +698,8 @@ public final class MainActivity extends Activity {
         }catch(Exception e){error(e);}}).setNegativeButton("取消",null).show();
     }
     void backgroundHelp(){
-        String message="自动刷新间隔："+MarketSession.label(data.settings.refreshMinutes)+"。仅在北京时间交易日09:30–11:30、13:00–15:00自动刷新和通知；周末、法定休市日、午休及收市后不自动联网。首次进入基金页也遵守此规则，手动下拉刷新、添加及导入不受限制。\n\n基金净值通常在收市后公布；严格按此规则，收市后新净值需手动刷新，或等下一次开市自动获取，不是盘中实时估值。\n\n通知权限：允许Yueji发送通知，并开启亏损提醒渠道的横幅/声音。\n后台运行权限：vivo应用耗电管理中允许后台高耗电或后台运行。\n自启动权限：如手机提供，允许Yueji自启动。\n电池优化：如希望减少延迟，可设为不限制。无需悬浮窗权限。\n网络权限：使用系统允许的移动数据/Wi-Fi，不需要读取银行账户。\n\n系统调度、省电、休眠和网络会推迟任务，不能保证整点；强行停止后须再次打开。不会常驻前台服务，也不在后台强行弹出应用。";
-        SpannableString styled=new SpannableString(message);for(String label:new String[]{"通知权限","后台运行权限","自启动权限","电池优化","网络权限"}){int at=message.indexOf(label);styled.setSpan(new android.text.style.StyleSpan(Typeface.BOLD),at,at+label.length(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);}
+        String message="自动刷新间隔："+MarketSession.label(data.settings.refreshMinutes)+"（默认2小时）。仅北京时间交易日15:00至当天24:00自动查询。收市后重新打开应用，首次进入基金或自选页面也会检查。两处合并按基金代码请求；已有当日已公布净值及完整历史的基金跳过，全部完成后当天不再联网。只请求成功但净值日期仍为昨天，不算完成，会在下个间隔重试。QDII及延迟披露可能要次日手动补刷；不保证当晚全部公布。手动下拉刷新始终可用。\n\n系统后台调度可能延迟，应用强行停止后无法自行绕过，须再次打开。可在系统通知、电池与自启动设置中允许后台运行，无需悬浮窗权限。";
+        SpannableString styled=new SpannableString(message);for(String label:new String[]{"通知权限","后台运行权限","自启动权限","电池优化","网络权限"}){int at=message.indexOf(label);if(at>=0)styled.setSpan(new android.text.style.StyleSpan(Typeface.BOLD),at,at+label.length(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);}
         TextView explanation=text("",13,INK,false);refreshPermissionText=explanation;explanation.setText(styled);explanation.setPadding(dp(20),0,dp(20),dp(16));ScrollView scroll=new ScrollView(this);scroll.addView(explanation);
         AppIcons.dialog(this).setTitle("后台刷新与权限").setView(scroll)
             .setNegativeButton("知道了",null).setPositiveButton("应用系统设置",(d,w)->startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())))).show();
@@ -847,19 +851,20 @@ public final class MainActivity extends Activity {
     // ---------------------------------------------------------------- funds
     void funds(){fundScreens.list(data);}
     void autoRefreshFunds(){
-        if(fundPageVisited||!data.settings.autoRefresh||!MarketSession.open(this))return;
-        fundPageVisited=true;if(!data.funds.isEmpty())refreshFunds(true);
+        if(data==null||!data.settings.autoRefresh||!MarketSession.open(this))return;
+        String day=FundEngine.now().toLocalDate().toString();if(day.equals(firstMarketVisit))return;
+        firstMarketVisit=day;fundPageVisited=true;startFundRefresh(true,true);
     }
-    /** Starts a refresh from the pull gesture or automatically; the pull spinner stays until the page is redrawn. */
-    void refreshFunds(){
-        refreshFunds(false);
-    }
-    void refreshFunds(boolean automatic){
-        if(automatic&&!MarketSession.open(this))return;
-        boolean any=false;for(Ledger.Fund f:data.funds)if(!f.removed())any=true;
-        if(refreshing||!any){if(!refreshing&&fundScreens.pull!=null)fundScreens.pull.setRefreshing(false);return;}
-        refreshing=true;getPreferences(0).edit().putLong("fundAttempt",System.currentTimeMillis()).apply();if(fundScreens.pull!=null)fundScreens.pull.setRefreshing(true);
-        new Thread(()->{String failure=null;try{failure=automatic?FundClient.refreshDuringMarket(getApplicationContext()):FundClient.refresh(getApplicationContext());}catch(Exception e){failure=NetworkIo.message(e);}String message=failure;runOnUiThread(()->{refreshing=false;if(!isFinishing()&&!isDestroyed()){if(fundScreens.pull!=null)fundScreens.pull.setRefreshing(false);if(tab==TAB_FUNDS&&page.isEmpty())render();if(message!=null)networkProblem(message);}});},"fund-refresh").start();
+    void refreshFunds(){startFundRefresh(false,false);}
+    void refreshFunds(boolean automatic){startFundRefresh(automatic,false);}
+    void startFundRefresh(boolean automatic,boolean firstVisit){
+        if(refreshing||automatic&&(!data.settings.autoRefresh||!MarketSession.open(this)))return;
+        if(automatic&&!MarketRefresh.due(this,data,FundEngine.now(),firstVisit))return;
+        if(MarketRefresh.codes(data).isEmpty()){if(fundScreens.pull!=null)fundScreens.pull.setRefreshing(false);if(watchScreens.pull!=null)watchScreens.pull.setRefreshing(false);return;}
+        refreshing=true;if(fundScreens.pull!=null)fundScreens.pull.setRefreshing(true);
+        new Thread(()->{String failure=null;try{failure=MarketRefresh.run(getApplicationContext(),automatic,firstVisit,null);}catch(Exception e){failure=NetworkIo.message(e);}String message=failure;
+            runOnUiThread(()->{refreshing=false;if(isFinishing()||isDestroyed())return;if(fundScreens.pull!=null)fundScreens.pull.setRefreshing(false);if(watchScreens.pull!=null)watchScreens.pull.setRefreshing(false);if(tab==TAB_FUNDS||page.equals("fund_watchlist")||page.equals("watch_detail"))rerenderKeepingScroll();if(!automatic&&message!=null)networkProblem(message);});
+        },"fund-market-refresh").start();
     }
     void fundEditor(Ledger.Fund old){fundScreens.buy(old,null);}
 }

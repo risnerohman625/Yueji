@@ -9,9 +9,8 @@ import static org.junit.Assert.*;
 public class V465RulesTest {
     LocalDate monday=LocalDate.of(2026,10,19);
     boolean open(int hour,int minute){return MarketSession.open(new TradingCalendar(),monday.atTime(hour,minute));}
-    @Test public void sessionsExcludeLunchAndOpeningClosingBoundaries(){
-        assertFalse(open(9,29));assertTrue(open(9,30));assertTrue(open(11,29));assertFalse(open(11,30));
-        assertFalse(open(12,59));assertTrue(open(13,0));assertTrue(open(14,59));assertFalse(open(15,0));assertFalse(open(23,0));
+    @Test public void publicationWindowStartsAtClose(){
+        assertFalse(open(9,30));assertFalse(open(11,29));assertFalse(open(13,0));assertFalse(open(14,59));assertTrue(open(15,0));assertTrue(open(23,59));
     }
     @Test public void weekendsAndOfficialClosuresNeverRun(){
         TradingCalendar calendar=new TradingCalendar();calendar.addClosed(monday);

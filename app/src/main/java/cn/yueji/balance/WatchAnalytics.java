@@ -17,7 +17,7 @@ final class WatchAnalytics {
     }
     static final class Result {
         final TreeMap<LocalDate,Double> growth=new TreeMap<>();
-        double change,high,sharpe,drawdown;boolean available,recovered;long recoveryDays;
+        double change,high,sharpe,drawdown;boolean available,recovered;long recoveryDays,declineDays,underwaterDays;
         LocalDate peakDate,troughDate,recoveryDate;
     }
     static LocalDate start(int range,LocalDate end){switch(range){case 0:return end.minusWeeks(1);case 1:return end.minusMonths(1);case 2:return end.minusMonths(3);case 3:return end.minusMonths(6);case 4:return end.minusYears(1);case 5:return end.minusYears(3);case 6:return end.minusYears(5);case 7:return end.minusYears(10);case 8:return end.withDayOfYear(1).minusDays(1);default:return LocalDate.of(2000,1,1);}}
@@ -40,7 +40,7 @@ final class WatchAnalytics {
         }
         r.available=true;r.change=value-100;
         if(n>1){double mean=sum/n,sd=Math.sqrt(Math.max(0,(sq-sum*sum/n)/(n-1)));r.sharpe=sd<=1e-12?0:mean/sd*Math.sqrt(252);}
-        if(r.troughDate!=null){double target=r.growth.get(r.peakDate);for(Map.Entry<LocalDate,Double> e:r.growth.tailMap(r.troughDate,false).entrySet())if(e.getValue()+1e-8>=target){r.recovered=true;r.recoveryDate=e.getKey();break;}LocalDate through=r.recovered?r.recoveryDate:r.growth.lastKey();r.recoveryDays=ChronoUnit.DAYS.between(r.peakDate,through);}
+        if(r.troughDate!=null){double target=r.growth.get(r.peakDate);for(Map.Entry<LocalDate,Double> e:r.growth.tailMap(r.troughDate,false).entrySet())if(e.getValue()+1e-8>=target){r.recovered=true;r.recoveryDate=e.getKey();break;}LocalDate through=r.recovered?r.recoveryDate:r.growth.lastKey();r.declineDays=ChronoUnit.DAYS.between(r.peakDate,r.troughDate);r.recoveryDays=ChronoUnit.DAYS.between(r.troughDate,through);r.underwaterDays=ChronoUnit.DAYS.between(r.peakDate,through);}
         else r.recovered=true;return r;
     }
     static Ledger.WatchFund owned(Ledger.Fund fund){Ledger.WatchFund w=new Ledger.WatchFund(fund.code,fund.name);w.nav=fund.nav;w.previous=fund.previous;w.navDate=fund.navDate;w.fundType=fund.fundType;w.historyComplete=fund.historyComplete;w.prices.putAll(fund.prices);w.returns.putAll(fund.navReturns);try{w.profile.read(fund.profile.encode());}catch(Exception ignored){}return w;}

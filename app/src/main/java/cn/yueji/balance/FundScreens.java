@@ -87,16 +87,16 @@ final class FundScreens {
         }
         for(Ledger.Fund f:FundRules.sorted(data,sortOrder(),false,today)){
             if(m.bankScreens.filter()==2)continue;
-            LinearLayout c=m.card();c.setBackground(m.ripple(Ui.SURFACE,18));c.setContentDescription("基金"+f.code);
+            LinearLayout c=m.card();c.setBackground(m.ripple(Ui.SURFACE,18));c.setContentDescription("基金"+f.code);c.setPadding(m.dp(12),m.dp(8),m.dp(12),m.dp(8));
             LinearLayout head=m.row();m.weight(head,new FundNameView(m,f.name,()->{m.fundFocus=f.id;m.go("fund_detail");}));
             boolean holding=FundEngine.held(f,today);long own=FundEngine.value(f,today);
-            c.addView(head);m.gap(c,6);
+            c.addView(head);m.gap(c,3);
             LinearLayout r=m.row();long fundToday=FundEngine.today(f,FundEngine.now()),heldP=FundEngine.heldProfit(f,today);Long fundYesterday=FundEngine.daily(f,today.minusDays(1),calendar());
             compactMetric(r,"持有金额",m.money(own),MainActivity.INK);
             compactMetric(r,"当日收益",m.signed(fundToday),color(fundToday));
             compactMetric(r,"昨日收益",fundYesterday==null?"待更新":m.signed(fundYesterday),fundYesterday==null?MainActivity.MUTED:color(fundYesterday));
             compactMetric(r,"持有收益",FundEngine.known(f,today)?m.signed(heldP):"待数据",color(heldP));c.addView(r);
-            m.gap(c,8);LinearLayout footer=m.row();
+            m.gap(c,3);LinearLayout footer=m.row();
             String share=holding&&heldValue>0?String.format(Locale.CHINA,"持仓占比 %.1f%%",own*100.0/heldValue):"已卖出";
             TextView stamp=holdingStamp(share,"更新 "+(f.updatedAt.isEmpty()?(f.navDate.isEmpty()?"待更新":f.navDate):f.updatedAt.replace('T',' ').substring(0,Math.min(16,f.updatedAt.length()))));
             m.weight(footer,stamp);if(!f.tag.isEmpty()){TextView label=m.ui.tag(f.tag,Ui.ACCENT_DEEP,Ui.ACCENT_SOFT);label.setMaxWidth(m.dp(100));label.setMaxLines(2);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-2,-2);tp.leftMargin=m.dp(6);footer.addView(label,tp);}c.addView(footer);
@@ -106,7 +106,7 @@ final class FundScreens {
                 new SwipeRow.Action("标签","基金标签"+f.code,MainActivity.AMBER,false,()->editTag(f)),
                 new SwipeRow.Action("编辑","编辑基金"+f.code,MainActivity.PURPLE,false,()->{m.fundFocus=f.id;m.go("fund_trades");}));
             row.setTag(PortfolioOrder.fund(f,today));
-            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=m.dp(12);m.body.addView(row,p);
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=m.dp(6);m.body.addView(row,p);
         }
         if(m.bankScreens.filter()!=1)m.bankScreens.append(false);
         PortfolioOrder.apply(m.body,sortOrder());
@@ -120,7 +120,14 @@ final class FundScreens {
         TextView button=m.ui.link("⇅ "+names[selected],()->{m.getPreferences(0).edit().putInt("fundSort",FundRules.nextSort(selected)).apply();m.rerenderKeepingScroll();});button.setContentDescription("基金排序");button.setTextSize(12);return button;
     }
     void addTag(LinearLayout row,String label,int color,int fill){TextView t=m.ui.tag(label,color,fill);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-2,-2);p.leftMargin=m.dp(8);row.addView(t,p);}
-    void compactMetric(LinearLayout row,String label,String value,int color){m.ui.metricCell(row,label,value,color,14,25);}
+    void compactMetric(LinearLayout row,String label,String value,int color){
+        int index=row.getChildCount();int align=(index==0?Gravity.START:index==3?Gravity.END:Gravity.CENTER_HORIZONTAL)|Gravity.CENTER_VERTICAL;
+        LinearLayout cell=m.col();cell.setPadding(m.dp(index==0?1:2),0,m.dp(index==3?1:2),0);cell.setContentDescription("持仓指标"+label);
+        TextView title=m.fit(m.text(label,10,Ui.MUTED,false),10,9);title.setGravity(align);cell.addView(title,new LinearLayout.LayoutParams(-1,m.dp(15)));
+        TextView number=m.fit(m.text(value,14,color,true),14,8);number.setGravity(align);number.setTag("bounded-number");
+        if(value.length()>13)number.setTypeface(android.graphics.Typeface.create("sans-serif-condensed",android.graphics.Typeface.BOLD));
+        cell.addView(number,new LinearLayout.LayoutParams(-1,m.dp(22)));row.addView(cell,new LinearLayout.LayoutParams(0,-2,1));
+    }
     TextView holdingStamp(String share,String suffix){
         String label=share.isEmpty()?suffix:share+" · "+suffix;SpannableString styled=new SpannableString(label);
         if(share.startsWith("持仓占比")){
@@ -221,7 +228,7 @@ final class FundScreens {
                 new SwipeRow.Action("恢复","恢复"+f.code,MainActivity.PURPLE,!f.removed(),()->{if(!f.removed())m.toast("该基金仍在首页");else restore(f);}),
                 new SwipeRow.Action("删除","永久删除"+f.code,MainActivity.RED,!f.removed(),()->confirmPurge(f)));
             row.setTag(PortfolioOrder.fund(f,today));
-            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=m.dp(12);m.body.addView(row,p);
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=m.dp(6);m.body.addView(row,p);
         }
         m.bankScreens.append(true);
         PortfolioOrder.apply(m.body,sortOrder());

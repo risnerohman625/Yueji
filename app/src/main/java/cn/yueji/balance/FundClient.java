@@ -98,28 +98,8 @@ public final class FundClient {
         q.history.put(LocalDate.parse(q.date),q.nav);q.date=q.history.lastKey().toString();q.nav=q.history.lastEntry().getValue();q.previous=q.history.lowerEntry(q.history.lastKey()).getValue();q.complete=true;return q;
     }
     /** Returns a short failure for the foreground; background jobs never open an activity or dialog. */
-    public static String refresh(android.content.Context context){
-        return refresh(context,false);
-    }
-    static String refreshDuringMarket(android.content.Context context){return refresh(context,true);}
-    private static String refresh(android.content.Context context,boolean marketHoursOnly){
-        LedgerStore store=new LedgerStore(context);
-        try{
-            String problem=null;
-            Ledger.Data initial;long epoch;synchronized(LedgerStore.class){initial=store.load();epoch=LedgerStore.epoch();}
-            TradingCalendar calendar=new TradingCalendar();for(int year=2010;year<=FundEngine.now().toLocalDate().getYear()+1;year++)calendar.load(context,year);
-            for(Ledger.Fund f:initial.funds){
-                if(LedgerStore.epoch()!=epoch||marketHoursOnly&&!MarketSession.open(calendar,FundEngine.now()))break;
-                if(f.removed())continue;
-                Quote q=null;String error="";boolean stop=false;
-                try{q=fetchHistory(f.code);}catch(Exception e){error=NetworkIo.message(e);if(problem==null)problem=error;stop=NetworkIo.connectivity(e);}
-                store.updateFundMarket(f.id,f.code,q,error,calendar,epoch);
-                if(stop||Thread.currentThread().isInterrupted()||marketHoursOnly&&!MarketSession.open(calendar,FundEngine.now()))break;
-            }
-            FundNotifications.publish(context,store.load());
-            return problem;
-        }finally{store.close();}
-    }
+    public static String refresh(android.content.Context context){return MarketRefresh.run(context,false,false,null);}
+    static String refreshDuringMarket(android.content.Context context){return MarketRefresh.run(context,true,false,null);}
     static FundProfile profile(String code,String name)throws Exception{
         if(!code.matches("[0-9]{6}"))throw new IllegalArgumentException("基金代码无效");
         return NetworkIo.call(()->{String overview="",fees="";try{overview=get("https://fundf10.eastmoney.com/jbgk_"+code+".html");}catch(IOException ignored){}try{fees=get("https://fundf10.eastmoney.com/jjfl_"+code+".html");}catch(IOException ignored){}FundProfile p=FundProfile.parse(name,overview,fees);if(p.management.isEmpty())p.management=FundProfile.match(overview,"管理费率</th>\\s*<td[^>]*>(.*?)</td>");if(p.custody.isEmpty())p.custody=FundProfile.match(overview,"托管费率</th>\\s*<td[^>]*>(.*?)</td>");if(p.service.isEmpty())p.service=FundProfile.match(overview,"销售服务费率</th>\\s*<td[^>]*>(.*?)</td>");if(overview.isEmpty()&&fees.isEmpty())p.updated="";return p;});

@@ -1,0 +1,21 @@
+Dedicated emulator: debug downgrade to 4.7.4 then in-place upgrade to 4.7.5. No uninstall or data clear.
+Performing Streamed Install
+Success
+Starting: Intent { cmp=cn.yueji.balance/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: cn.yueji.balance/.MainActivity
+TotalTime: 3634
+WaitTime: 3637
+Complete
+Performing Streamed Install
+Success
+Starting: Intent { act=android.intent.action.MAIN cat=[android.intent.category.INFO] pkg=cn.yueji.balance }
+Status: ok
+LaunchState: COLD
+Activity: cn.yueji.balance/.UpdateLaunchActivity
+TotalTime: 4139
+WaitTime: 4202
+Complete
+
+    topResumedActivity=ActivityRecord{69356602 u0 cn.yueji.balance/.UpdateLaunchActivity t2234}

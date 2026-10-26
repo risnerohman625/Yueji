@@ -1,0 +1,15 @@
+{
+  "versionName": "4.7.5",
+  "versionCode": 24,
+  "package": "cn.yueji.balance",
+  "apkBytes": 1730179,
+  "sha256": "84fda117bf70cf5f6b70c4796dcfb9b7539ef957a2f34cdfc0f56ee0cc45b042",
+  "certificateSha256": "52326c1c3837684150e996b3c6a0e007d19c78e70de397b7bad82d5e48126915",
+  "dataTests": 326,
+  "deviceTests": 50,
+  "ocrPayload": false,
+  "bundledLedger": false,
+  "publicHistoryFixtureShips": false,
+  "installerImplicitLaunch": "MAIN/INFO + DEFAULT: cold start passed after 4.7.4 -> 4.7.5",
+  "physicalVivoInstaller": "not tested: no physical device connected"
+}

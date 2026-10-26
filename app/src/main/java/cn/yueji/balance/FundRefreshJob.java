@@ -24,6 +24,7 @@ public final class FundRefreshJob extends JobService {
         if(!MarketSession.open(this)){
             getSharedPreferences("fund-job",0).edit().putString("lastState","closed").putLong("checkedAt",System.currentTimeMillis()).apply();return false;
         }
+        LedgerStore check=new LedgerStore(this);try{if(MarketRefresh.pending(check.load(),FundEngine.now().toLocalDate()).isEmpty())return false;}finally{check.close();}
         stopped=false;long token=++runId;executor=Executors.newSingleThreadExecutor();ExecutorService worker=executor;
         worker.execute(()->{LedgerStore store=new LedgerStore(this);try{if(store.load().settings.autoRefresh&&MarketSession.open(this)){FundClient.refreshDuringMarket(this);if(!Thread.currentThread().isInterrupted()&&!stopped&&token==runId&&MarketSession.open(this)&&HolidayUpdater.due(this))HolidayUpdater.update(this);}}catch(Exception ignored){ }finally{store.close();if(!stopped&&token==runId)jobFinished(params,false);worker.shutdown();}});return true;
     }
