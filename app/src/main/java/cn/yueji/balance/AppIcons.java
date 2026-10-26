@@ -44,16 +44,21 @@ final class AppIcons {
             java.util.List<PackageManager.ComponentEnabledSetting> settings=new java.util.ArrayList<>();
             for(int i=0;i<3;i++){
                 int state=i==selected?PackageManager.COMPONENT_ENABLED_STATE_ENABLED:PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
-                if(manager.getComponentEnabledSetting(component(context,i))!=state)settings.add(new PackageManager.ComponentEnabledSetting(component(context,i),state,PackageManager.DONT_KILL_APP));
+                if(!effectiveStateMatches(manager,context,i,state))settings.add(new PackageManager.ComponentEnabledSetting(component(context,i),state,PackageManager.DONT_KILL_APP));
             }
             if(!settings.isEmpty())manager.setComponentEnabledSettings(settings);
         }else{
             // Enable the target first so no intermediate state loses every launcher entry.
             for(int i:new int[]{selected,(selected+1)%3,(selected+2)%3}){
                 int state=i==selected?PackageManager.COMPONENT_ENABLED_STATE_ENABLED:PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
-                if(manager.getComponentEnabledSetting(component(context,i))!=state)manager.setComponentEnabledSetting(component(context,i),state,PackageManager.DONT_KILL_APP);
+                if(!effectiveStateMatches(manager,context,i,state))manager.setComponentEnabledSetting(component(context,i),state,PackageManager.DONT_KILL_APP);
             }
         }
+    }
+    static boolean effectiveStateMatches(PackageManager manager,Context context,int choice,int desired){
+        int actual=manager.getComponentEnabledSetting(component(context,choice));
+        if(actual==PackageManager.COMPONENT_ENABLED_STATE_DEFAULT)actual=choice==DEFAULT?PackageManager.COMPONENT_ENABLED_STATE_ENABLED:PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+        return actual==desired;
     }
     static void select(MainActivity activity,int choice){
         if(choice<0||choice>=3)throw new IllegalArgumentException("未知应用图标");

@@ -448,10 +448,8 @@ final class FundScreens {
         for(int i=0;i<accounts.size();i++)accountNames[i+1]=accounts.get(i).name+" · "+accounts.get(i).type;
         int accountSelection=accounts.isEmpty()?0:1;if(presetAccount>0)for(int i=0;i<accounts.size();i++)if(accounts.get(i).id==presetAccount)accountSelection=i+1;if(editing!=null){accountSelection=0;if(editing.buyAccountLinked)for(int i=0;i<accounts.size();i++)if(accounts.get(i).id==editing.buyAccountId)accountSelection=i+1;}
         Spinner sourceAccount=m.choices(form,"买入资金来源账户",accountNames,accountSelection);
-        form.addView(m.text(accounts.isEmpty()?"未添加资产账户时可选择“不关联账户”，历史买入不会改余额。":"默认关联账户；历史买入可选择“不关联账户”，避免重复扣减余额。",10.5f,MainActivity.MUTED,false));
         TextView preview=m.text("",12,MainActivity.MUTED,false);m.gap(form,9);form.addView(preview);
         TradingCalendar calendar=calendar();Runnable update=()->{LocalDate trade=calendar.tradeDate(date.at);preview.setText("预计交易日 "+trade+" · 预计确认 "+calendar.next(trade)+(calendar.covered(trade.getYear())?"":"\n该年份休市日历未覆盖，请核对确认日期（设置里可更新休市日历）"));};date.changed=update;update.run();
-        form.addView(m.text("按普通场外基金T+1估算，15:00及以后顺延。QDII、暂停申购等以实际平台为准，可在交易记录校正。",11,MainActivity.MUTED,false));
         CheckBox recurring=new CheckBox(m);recurring.setText("保存后配置定投（仅普通基金）");if(editing==null&&!recurringRun)form.addView(recurring);
         AlertDialog d=AppIcons.dialog(m).setTitle(editing==null?"添加基金买入":"编辑交易").setView(m.wrap(form)).setNegativeButton("取消",null).setPositiveButton("获取净值并保存",null).create();
         if(editing!=null){
@@ -568,7 +566,6 @@ final class FundScreens {
     final Set<String> importPlanCodes=new LinkedHashSet<>();
     void importOptions(List<FundSheet.Row> rows,Set<String> codes){
         LinearLayout form=m.col();form.setPadding(m.dp(15),0,m.dp(15),m.dp(12));List<Ledger.Account> accounts=transactionAccounts(0);String[] names=new String[accounts.size()+1];names[0]="不关联账户";for(int i=0;i<accounts.size();i++)names[i+1]=accounts.get(i).name;
-        form.addView(m.text("每笔买入默认关联首个资产账户。补录开户前已买入的历史记录，请选择不关联，避免重复扣减。定投资料在导入后手动配置，不从截图猜测。",12,Ui.MUTED,false));
         Map<FundSheet.Row,Spinner> selected=new LinkedHashMap<>();Map<String,CheckBox> plans=new LinkedHashMap<>();
         for(FundSheet.Row row:rows){Spinner spinner=m.choices(form,row.name+" · "+Ledger.csvMinute(row.at)+" · ¥ "+m.money(row.amount),names,accounts.isEmpty()?0:1);selected.put(row,spinner);if(!plans.containsKey(row.code)){CheckBox plan=new CheckBox(m);plan.setText("导入后为 "+row.code+" 配置定投");form.addView(plan);plans.put(row.code,plan);}}
         AlertDialog dialog=AppIcons.dialog(m).setTitle("资金来源与定投选项").setView(m.wrap(form)).setNegativeButton("取消",null).setPositiveButton("确认导入",null).create();dialog.show();dialog.getButton(-1).setOnClickListener(v->{try{importPlanCodes.clear();for(Map.Entry<FundSheet.Row,Spinner> e:selected.entrySet()){int position=e.getValue().getSelectedItemPosition();e.getKey().sourceAccountLinked=position>0;e.getKey().sourceAccountId=position==0?0:accounts.get(position-1).id;if(position>0)AccountCash.requireAccount(m.data,e.getKey().sourceAccountId,FundEngine.ledgerTime(e.getKey().at));}for(Map.Entry<String,CheckBox> e:plans.entrySet())if(e.getValue().isChecked())importPlanCodes.add(e.getKey());dialog.dismiss();runImport(rows,codes);}catch(Exception e){m.error(e);}});

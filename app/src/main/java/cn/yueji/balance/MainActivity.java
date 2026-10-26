@@ -173,6 +173,7 @@ public final class MainActivity extends Activity {
             else root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         }
         if(!home)subpage();else homePage();
+        if(page.equals("fund_watchlist")&&watchScreens.selectionMode)watchScreens.selectionBar();
         if(home)navigation();root.requestFocus();
     }
     boolean compactScreen(){return getResources().getConfiguration().screenHeightDp<760;}
@@ -580,11 +581,11 @@ public final class MainActivity extends Activity {
     /** One collapsible group. Returns the container its rows are added to. */
     LinearLayout group(String key,String title,String summary){
         LinearLayout c=card(body);c.setBackground(Ui.round(Ui.ACCENT_TINT,dp(18)));c.setPadding(dp(16),0,dp(16),0);c.setContentDescription("分组"+title);
-        LinearLayout head=row();head.setMinimumHeight(dp(58));head.setBackground(ripple(Ui.ACCENT_TINT,16));
+        LinearLayout head=row();head.setMinimumHeight(dp(49));head.setBackground(ripple(Ui.ACCENT_TINT,16));
         LinearLayout names=col();names.addView(text(title,15.5f,INK,true));if(summary!=null){gap(names,4);names.addView(text(summary,11.5f,MUTED,false));}weight(head,names);
         Chevron arrow=new Chevron(this);arrow.setRotation(openSections.contains(key)?90:0);head.addView(arrow,new LinearLayout.LayoutParams(dp(22),dp(22)));
-        head.setPadding(0,dp(10),0,dp(10));c.addView(head,new LinearLayout.LayoutParams(-1,-2));
-        LinearLayout content=col();View accentLine=new View(this);accentLine.setBackgroundColor(Ui.ACCENT_SOFT);content.addView(accentLine,new LinearLayout.LayoutParams(-1,dp(2)));content.setVisibility(openSections.contains(key)?View.VISIBLE:View.GONE);c.addView(content);
+        head.setPadding(0,dp(7),0,dp(7));c.addView(head,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout content=col();content.setBackgroundColor(Ui.SURFACE);View accentLine=new View(this);accentLine.setBackgroundColor(Ui.ACCENT_SOFT);content.addView(accentLine,new LinearLayout.LayoutParams(-1,dp(2)));content.setVisibility(openSections.contains(key)?View.VISIBLE:View.GONE);c.addView(content);
         sectionContents.put(key,content);sectionArrows.put(key,arrow);
         head.setOnClickListener(v->{
             boolean show=content.getVisibility()!=View.VISIBLE;openSections.clear();
@@ -597,7 +598,7 @@ public final class MainActivity extends Activity {
     }
     void rowIn(LinearLayout content,String title,String value,Runnable click){content.addView(ui.divider());LinearLayout r=ui.listRow(content,title,value,click);r.setMinimumHeight(dp(52));r.setContentDescription(title);}
     LinearLayout nestedGroup(LinearLayout parent,String key,String title){
-        LinearLayout card=card(parent),head=row(),content=col();card.setBackground(Ui.round(Ui.ACCENT_TINT,dp(14)));head.setMinimumHeight(dp(50));head.setBackground(Ui.round(Ui.ACCENT_SOFT,dp(10)));weight(head,text(title,14,INK,true));Chevron arrow=new Chevron(this);head.addView(arrow,new LinearLayout.LayoutParams(dp(20),dp(20)));boolean open=openSections.contains(key);content.setVisibility(open?View.VISIBLE:View.GONE);arrow.open(open);head.setOnClickListener(v->{boolean show=content.getVisibility()!=View.VISIBLE;content.setVisibility(show?View.VISIBLE:View.GONE);arrow.open(show);if(show)openSections.add(key);else openSections.remove(key);});card.addView(head);card.addView(content);return content;
+        LinearLayout card=col(),head=row(),content=col();card.setBackground(Ui.round(Ui.ACCENT_SOFT,dp(10)));card.setPadding(dp(10),0,dp(10),0);LinearLayout.LayoutParams spacing=new LinearLayout.LayoutParams(-1,-2);spacing.topMargin=dp(4);spacing.bottomMargin=dp(4);parent.addView(card,spacing);head.setMinimumHeight(dp(42));weight(head,text(title,14,INK,true));Chevron arrow=new Chevron(this);head.addView(arrow,new LinearLayout.LayoutParams(dp(20),dp(20)));boolean open=openSections.contains(key);content.setVisibility(open?View.VISIBLE:View.GONE);content.setBackgroundColor(Ui.SURFACE);arrow.open(open);head.setOnClickListener(v->{boolean show=content.getVisibility()!=View.VISIBLE;content.setVisibility(show?View.VISIBLE:View.GONE);arrow.open(show);if(show)openSections.add(key);else openSections.remove(key);});card.addView(head);card.addView(content);return content;
     }
     void settingsPage(){
         LinearLayout titleRow=row();titleRow.setPadding(dp(4),0,0,dp(12));titleRow.addView(text("设置",24,INK,true));body.addView(titleRow);
@@ -612,10 +613,11 @@ public final class MainActivity extends Activity {
         settingSwitch(notify,"仅在基金出现亏损时通知",data.settings.lossOnly,(c,value)->c.settings.lossOnly=value);
         settingSwitch(notify,"自动刷新基金",data.settings.autoRefresh,(c,value)->c.settings.autoRefresh=value);
         rowIn(notify,"自动刷新间隔",MarketSession.label(data.settings.refreshMinutes),this::refreshInterval);
-        rowIn(notify,"系统通知权限",null,()->startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName())));
-        rowIn(notify,"后台刷新与省电设置",null,this::backgroundHelp);
         rowIn(notify,"发送测试通知",null,this::testNotification);
-        LinearLayout security=group("security","安全与隐私","应用锁");
+        LinearLayout security=group("security","安全与隐私","应用锁与系统权限");
+        rowIn(security,"系统通知权限",null,()->startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,getPackageName())));
+        rowIn(security,"后台刷新与省电设置",null,this::backgroundHelp);
+        rowIn(security,"安装应用权限",getPackageManager().canRequestPackageInstalls()?"已允许":"未允许",()->startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+getPackageName()))));
         settingSwitch(security,"应用锁",data.settings.appLockEnabled,(c,value)->{
             if(value&&!AppLock.enabled(this)){
                 showLock(LockOverlay.Mode.CREATE,this::render,this::render);
@@ -666,7 +668,7 @@ public final class MainActivity extends Activity {
         updates().about(card(body));
         for(int i=0;i<body.getChildCount();i++){View child=body.getChildAt(i);if(child.getLayoutParams() instanceof LinearLayout.LayoutParams){LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)child.getLayoutParams();lp.bottomMargin=Math.min(lp.bottomMargin,dp(8));child.setLayoutParams(lp);}}
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.2";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.3";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}

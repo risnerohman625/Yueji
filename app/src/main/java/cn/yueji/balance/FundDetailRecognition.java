@@ -50,7 +50,7 @@ final class FundDetailRecognition {
         result.sort(Comparator.comparingInt(l->l.top));return result;
     }
     // Normalize labels only. Product names must retain every character for identity verification.
-    static String labelText(String text){return FundRecognition.compact(text).replaceFirst("^[|｜丨]+","").replace("买人","买入").replace("金額","金额").replace("全額","金额").replace("全额","金额").replace("手績费","手续费");}
+    static String labelText(String text){return FundRecognition.compact(text).replaceFirst("^[|｜丨]+","").replace("买人","买入").replace("金額","金额").replace("金颜","金额").replace("买入戍功","买入成功").replace("全額","金额").replace("全额","金额").replace("手績费","手续费");}
     static String field(List<FundRecognition.Line> lines,String label){
         for(FundRecognition.Line anchor:lines){
             String compact=labelText(anchor.text);int at=compact.indexOf(label);if(at<0)continue;
