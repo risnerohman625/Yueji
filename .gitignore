@@ -44,3 +44,7 @@ docs/validation/*
 !dist/Yueji-4.7.3-debug.apk.sha256
 !docs/Yueji-4.7.3-修改说明.md
 !docs/validation/v473-*.txt
+
+# Local agent instructions: keep locally, never include in new commits.
+[Aa][Gg][Ee][Nn][Tt].[Mm][Dd]
+[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]
