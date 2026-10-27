@@ -63,3 +63,8 @@ docs/validation/*
 !dist/Yueji-4.7.6-debug.apk.sha256
 !docs/Yueji-4.7.6-修改说明.md
 !docs/validation/v476-*.txt
+
+!dist/Yueji-4.7.7-debug.apk
+!dist/Yueji-4.7.7-debug.apk.sha256
+!docs/Yueji-4.7.7-修改说明.md
+!docs/validation/v477-*.txt

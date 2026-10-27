@@ -1,0 +1,17 @@
+{
+  "versionName": "4.7.7",
+  "versionCode": 26,
+  "package": "cn.yueji.balance",
+  "apkBytes": 1738917,
+  "sha256": "8ae2ac9eb8b20569e7ada25ec54ac81d97e57f5d07d949c0ae97007908ebea23",
+  "certificateSha256": "52326c1c3837684150e996b3c6a0e007d19c78e70de397b7bad82d5e48126915",
+  "dataTests": 333,
+  "deviceTests": 57,
+  "ocrPayload": false,
+  "bundledLedger": false,
+  "publicHistoryFixtureShips": false,
+  "phoneMatrix": "1260x2800 at densities 480/560/600: first three columns fit including percent signs; header group centers match numeric centers",
+  "duplicateImport": "existing code reports already-in-list without a network request or ledger/group changes",
+  "GiteeReleaseAuth": "Windows DPAPI personal token configured and verified",
+  "physicalDevice": "not tested; display verified on emulator"
+}

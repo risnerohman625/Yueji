@@ -7,8 +7,8 @@ android {
         applicationId 'cn.yueji.balance'
         minSdk 26
         targetSdk 36
-        versionCode 25
-        versionName '4.7.6'
+        versionCode 26
+        versionName '4.7.7'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     compileOptions {

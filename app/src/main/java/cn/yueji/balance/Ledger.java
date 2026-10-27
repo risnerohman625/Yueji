@@ -118,6 +118,7 @@ public final class Ledger {
   public final List<HistoryMonth> history=new ArrayList<>();public final List<Fund> funds=new ArrayList<>();
   public final List<WatchGroup> watchGroups=new ArrayList<>();
   public final List<WatchFund> watchFunds=new ArrayList<>();
+  public final Set<String> watchAllIncluded=new LinkedHashSet<>();
   public int watchRange=4,watchSort=0;public boolean watchDescending=true;
   public final Settings settings=new Settings();
   public final List<String> categories=new ArrayList<>(Arrays.asList("奖学金","助学金","生活费","助研费","其他"));
@@ -222,4 +223,3 @@ public final class Ledger {
  public static LocalDate nextNode(LocalDate t){return t.getDayOfMonth()<15?t.withDayOfMonth(15):t.withDayOfMonth(1).plusMonths(1);}
  private Ledger(){}
 }
-

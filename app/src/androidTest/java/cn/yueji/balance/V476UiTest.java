@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class V476UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;final V43UiTest h=old.h;
-    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",25).commit();}
+    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",26).commit();}
     @After public void after()throws Exception{old.after();}
     @Test public void bankAndFundCardsSharePaddingMetricsAndOuterGap(){
         Ledger.Data data=old.sample();BankLedger.Draft draft=new BankLedger.Draft();draft.name="银行理财紧凑卡片";draft.balance=100000L;draft.at=LocalDateTime.of(2026,10,1,10,0);BankLedger.Product bank=BankLedger.apply(data,0,draft,false,null);bank.tag="";t.start(data);
@@ -24,7 +24,7 @@ public class V476UiTest {
     }
     @Test public void groupsCountActualUniqueFundsAndDuplicatesDoNotImport(){
         Ledger.Data data=old.sample();data.watchFunds.add(WatchAnalytics.owned(data.funds.get(0)));t.start(data);
-        t.ui(()->{t.app.go("fund_watchlist");assertNotNull(t.findText(t.app.body,"全部(7)"));assertNotNull(t.findText(t.app.body,"持有(2)"));assertNotNull(t.findText(t.app.body,"短债(1)"));assertNotNull(t.findText(t.app.body,"长期(0)"));assertNotNull(t.findText(t.app.body,"+自定义"));});
+        t.ui(()->{t.app.go("fund_watchlist");assertNotNull(t.findText(t.app.body,"全部(4)"));assertNotNull(t.findText(t.app.body,"持有(2)"));assertNotNull(t.findText(t.app.body,"短债(1)"));assertNotNull(t.findText(t.app.body,"长期(0)"));assertNotNull(t.findText(t.app.body,"+自定义"));});
         String before=t.store.exportJson();t.ui(()->t.app.watchScreens.load(Collections.singletonList("006431")));
         assertNotNull(t.device.wait(Until.findObject(By.text("该基金已在自选列表")),2000));assertEquals(before,t.store.exportJson());t.ui(()->assertNull(t.app.watchScreens.progress));old.shot("v476-existing-watch.png");
     }

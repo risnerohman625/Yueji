@@ -9,6 +9,18 @@ import java.util.regex.*;
 final class FundProfile {
     String established="",scale="",buyRules="",saleRules="",management="",custody="",service="",updated="";
     String dailyLimit="";String lockUnit="";int lockCount;
+    void merge(FundProfile source){
+        if(!source.established.isEmpty())established=source.established;
+        if(!source.scale.isEmpty())scale=source.scale;
+        if(!source.buyRules.isEmpty())buyRules=source.buyRules;
+        if(!source.saleRules.isEmpty())saleRules=source.saleRules;
+        if(!source.management.isEmpty())management=source.management;
+        if(!source.custody.isEmpty())custody=source.custody;
+        if(!source.service.isEmpty())service=source.service;
+        if(!source.dailyLimit.isEmpty())dailyLimit=source.dailyLimit;
+        if(source.lockCount>0){lockCount=source.lockCount;lockUnit=source.lockUnit;}
+        if(!source.updated.isEmpty())updated=source.updated;
+    }
     JSONObject encode()throws JSONException{return new JSONObject().put("dailyLimit",dailyLimit).put("established",established).put("scale",scale).put("buyRules",buyRules).put("saleRules",saleRules).put("management",management).put("custody",custody).put("service",service).put("lockUnit",lockUnit).put("lockCount",lockCount).put("updated",updated);}
     void read(JSONObject o){if(o==null)return;dailyLimit=o.optString("dailyLimit");established=o.optString("established");scale=o.optString("scale");buyRules=o.optString("buyRules");saleRules=o.optString("saleRules");management=o.optString("management");custody=o.optString("custody");service=o.optString("service");lockUnit=o.optString("lockUnit");lockCount=o.optInt("lockCount");updated=o.optString("updated");}
     static String clean(String html){return html.replaceAll("(?is)<(script|style)[^>]*>.*?</\\1>","").replaceAll("<[^>]+>"," ").replace("&nbsp;"," ").replace("&lt;","<").replace("&gt;",">").replace("&le;","≤").replace("&ge;","≥").replace("&#x2264;","≤").replace("&amp;","&").replaceAll("\\s+"," ").trim();}

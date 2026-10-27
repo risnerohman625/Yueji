@@ -21,7 +21,7 @@ import static org.junit.Assert.*;
 public class V474UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;
     @Before public void before(){
-        old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",25).commit();
+        old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",26).commit();
     }
     @After public void after()throws Exception{old.after();}
     View text(String value){return t.findText(t.app.body,value);}
@@ -90,7 +90,7 @@ public class V474UiTest {
         assertEquals(original,t.store.exportJson());
         try(Cursor cursor=t.store.getReadableDatabase().rawQuery("SELECT max(length(json)),count(*) FROM state_chunks",null)){assertTrue(cursor.moveToFirst());assertTrue(cursor.getInt(0)<=LedgerStore.CHUNK_CHARS);assertTrue(cursor.getInt(1)>1);}
         t.start(t.store.load());assertNotNull(t.app.root);assertEquals(12,t.app.data.watchFunds.size());assertEquals(1,t.app.data.watchGroups.size());
-        t.ui(()->{t.app.go("fund_watchlist");assertEquals(12,t.app.watchScreens.visible().size());});old.shot("v474-large-ledger.png");
+        t.ui(()->{t.app.go("fund_watchlist");assertEquals(11,t.app.watchScreens.visible().size());});old.shot("v474-large-ledger.png");
     }
     @Test public void failedBackupValidationDoesNotReplaceCurrentLedger()throws Exception{
         t.start(old.sample());String before=t.store.exportJson();org.json.JSONObject invalid=new org.json.JSONObject(before);invalid.put("watchFunds",new org.json.JSONObject());
