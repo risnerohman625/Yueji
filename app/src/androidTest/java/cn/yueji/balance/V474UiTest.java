@@ -21,7 +21,7 @@ import static org.junit.Assert.*;
 public class V474UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;
     @Before public void before(){
-        old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",26).commit();
+        old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",27).commit();
     }
     @After public void after()throws Exception{old.after();}
     View text(String value){return t.findText(t.app.body,value);}

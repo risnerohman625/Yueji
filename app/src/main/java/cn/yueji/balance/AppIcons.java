@@ -28,7 +28,7 @@ final class AppIcons {
         sync(context);NotificationArt.restyle(context);
     }
     static int resource(int choice){return choice==0?R.mipmap.icon_classic:choice==1?R.mipmap.icon_moon:R.mipmap.icon_petals;}
-    static int small(Context context){int choice=selected(context);return choice==0?R.drawable.ic_stat_classic:choice==1?R.drawable.ic_stat_moon:R.drawable.ic_stat_petals;}
+    static int small(Context context){int choice=selected(context);return choice==0?R.drawable.ic_stat_classic:choice==1?R.drawable.ic_stat_moon:R.drawable.ic_stat_two_petals;}
     static Drawable drawable(Context context){
         return context.getDrawable(resource(selected(context)));
     }

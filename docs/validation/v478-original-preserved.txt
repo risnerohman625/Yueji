@@ -1,0 +1,2 @@
+Working project: full sibling copy YuejiV4.7.8. Original YuejiV4.7.7 retains version 4.7.7/build26 at commit e139b92aec2bab1be1f8d54f6febc79aa43a38eb.
+Only the six pre-existing line-ending changes remain in the original; their bytes match the working copy and they are excluded from this release commit.

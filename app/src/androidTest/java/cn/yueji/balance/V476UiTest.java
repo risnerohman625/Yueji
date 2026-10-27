@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class V476UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;final V43UiTest h=old.h;
-    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",26).commit();}
+    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",27).commit();}
     @After public void after()throws Exception{old.after();}
     @Test public void bankAndFundCardsSharePaddingMetricsAndOuterGap(){
         Ledger.Data data=old.sample();BankLedger.Draft draft=new BankLedger.Draft();draft.name="银行理财紧凑卡片";draft.balance=100000L;draft.at=LocalDateTime.of(2026,10,1,10,0);BankLedger.Product bank=BankLedger.apply(data,0,draft,false,null);bank.tag="";t.start(data);

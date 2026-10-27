@@ -23,7 +23,7 @@ final class FundCodec {
         for(Ledger.RecurringRecord r:f.plan.records)planRecords.put(new JSONObject().put("id",r.id).put("buyId",r.buyId).put("amount",r.amount)
             .put("accountId",r.accountId).put("date",r.date==null?JSONObject.NULL:r.date.toString()).put("status",r.status));
         JSONObject plan=new JSONObject().put("enabled",f.plan.enabled).put("amount",f.plan.amount).put("fee",f.plan.fee)
-            .put("accountId",f.plan.accountId).put("dayOfMonth",f.plan.dayOfMonth).put("frequency",f.plan.frequency)
+            .put("accountId",f.plan.accountId).put("dayOfMonth",f.plan.dayOfMonth).put("frequency",f.plan.frequency).put("totalPeriods",f.plan.totalPeriods)
             .put("startDate",f.plan.startDate).put("nextDate",f.plan.nextDate).put("records",planRecords);
         JSONObject prices=new JSONObject(),returns=new JSONObject(),dividends=new JSONObject(),splits=new JSONObject();
         for(Map.Entry<LocalDate,BigDecimal> e:f.prices.entrySet())prices.put(e.getKey().toString(),e.getValue().toPlainString());
@@ -49,7 +49,7 @@ final class FundCodec {
         if(plan!=null){
             f.plan.enabled=plan.optBoolean("enabled");f.plan.amount=plan.optLong("amount");f.plan.fee=plan.optLong("fee");
             f.plan.accountId=plan.optLong("accountId");f.plan.dayOfMonth=plan.optInt("dayOfMonth",1);
-            f.plan.frequency=plan.optString("frequency","每月");f.plan.startDate=plan.optString("startDate");f.plan.nextDate=plan.optString("nextDate");
+            f.plan.totalPeriods=plan.optInt("totalPeriods");f.plan.frequency=plan.optString("frequency","每月");f.plan.startDate=plan.optString("startDate");f.plan.nextDate=plan.optString("nextDate");
             JSONArray records=plan.optJSONArray("records");if(records!=null)for(int i=0;i<records.length();i++){
                 JSONObject r=records.getJSONObject(i);Ledger.RecurringRecord record=new Ledger.RecurringRecord();
                 record.id=r.getLong("id");record.buyId=r.optLong("buyId");record.amount=r.getLong("amount");record.accountId=r.getLong("accountId");
@@ -77,7 +77,7 @@ final class FundCodec {
             if(b.saleAccountLinked&&b.saleDate==null)throw new IllegalArgumentException("未卖出的买入记录不能关联到账账户");
         }
         if(f.buys.isEmpty()&&f.shares.signum()<=0)throw new IllegalArgumentException("旧持仓份额无效");
-        if(f.plan.enabled&&(f.plan.amount<=0||f.plan.amount>Ledger.MAX_MONEY||f.plan.fee<0||f.plan.fee>=f.plan.amount||f.plan.accountId<=0||f.plan.dayOfMonth<1||f.plan.dayOfMonth>28||!Arrays.asList("每周","每月").contains(f.plan.frequency)))throw new IllegalArgumentException("定投配置无效");
+        if(f.plan.enabled&&(f.plan.amount<=0||f.plan.amount>Ledger.MAX_MONEY||f.plan.fee<0||f.plan.fee>=f.plan.amount||f.plan.accountId<=0||f.plan.dayOfMonth<1||f.plan.dayOfMonth>28||!Arrays.asList("每日","每周","每月").contains(f.plan.frequency)))throw new IllegalArgumentException("定投配置无效");
         if(f.plan.records.size()>10000)throw new IllegalArgumentException("定投记录数量超限");
         for(Ledger.RecurringRecord record:f.plan.records)if(record.id<=0||record.amount<=0||record.amount>Ledger.MAX_MONEY||record.accountId<=0||record.date==null||record.status==null||record.status.length()>20)throw new IllegalArgumentException("定投记录无效");
         if(f.prices.size()>30000||f.buys.size()>1000)throw new IllegalArgumentException("基金数据量超限");

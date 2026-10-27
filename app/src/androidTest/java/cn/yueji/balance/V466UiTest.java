@@ -82,12 +82,12 @@ public class V466UiTest {
             ViewGroup row=(ViewGroup)h.desc(chooser,"应用图标选择");assertEquals(3,row.getChildCount());
             assertNull(t.findText(chooser,"＋ 添加图标"));h.desc(chooser,"应用图标选项0").performClick();
             assertTrue(h.desc(chooser,"应用图标选项0").isSelected());assertFalse(t.app.isFinishing());assertEquals(2,AppIcons.selected(t.context));
-            assertEquals(R.drawable.ic_stat_petals,currentNotice().getSmallIcon().getResId());
+            assertEquals(R.drawable.ic_stat_two_petals,currentNotice().getSmallIcon().getResId());
         });shot("v466-icon-dialog-pending.png");tap("完成");
         t.ui(()->t.app.finish());SystemClock.sleep(200);t.start(timeline());assertEquals(0,AppIcons.selected(t.context));assertEquals(R.drawable.ic_stat_classic,currentNotice().getSmallIcon().getResId());
         t.ui(()->AppIcons.show(t.app));t.ui(()->h.desc(t.app.iconChooser.getWindow().getDecorView(),"应用图标选项2").performClick());tap("完成");
         t.ui(()->t.app.finish());SystemClock.sleep(200);t.start(timeline());
-        assertEquals(2,AppIcons.selected(t.context));assertEquals(R.drawable.ic_stat_petals,currentNotice().getSmallIcon().getResId());
+        assertEquals(2,AppIcons.selected(t.context));assertEquals(R.drawable.ic_stat_two_petals,currentNotice().getSmallIcon().getResId());
         assertEquals(R.mipmap.icon_petals,t.context.getPackageManager().getApplicationInfo(t.context.getPackageName(),0).icon);
         assertNull(currentNotice().getLargeIcon());assertNull(currentNotice().contentView);
         t.device.openNotification();SystemClock.sleep(400);shot("v466-petals-system-notification.png");t.device.pressBack();

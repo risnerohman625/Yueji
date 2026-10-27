@@ -471,6 +471,7 @@ final class FundScreens {
             delete.setOnClickListener(v->AppIcons.dialog(m).setTitle("删除本条交易？").setMessage("将移除本笔买入及其关联资金划转。最后一笔买入须从首页删除基金后处理。").setNegativeButton("取消",null).setPositiveButton("删除",(a,b)->{if(mutateBuy(old,editing,true,null))d.dismiss();}).show());form.addView(delete);
         }
         d.show();
+        if(editing==null&&!recurringRun){TextView feeHint=m.text("输入代码和金额后估算优惠手续费，支持手动修改",11,Ui.MUTED,false);form.addView(feeHint);new PurchaseFeeBinding(m,code,name,amount,fee,feeHint).start(d);}
         d.getButton(-1).setOnClickListener(v->{try{
             String symbol=code.getText().toString().trim();if(!symbol.matches("[0-9]{6}"))throw new IllegalArgumentException("基金代码为6位数字");long gross=Ledger.parseMoney(amount.getText().toString(),true),charge=Ledger.parseMoney(fee.getText().toString(),false);
             Ledger.WatchFund cached=m.watchScreens.find(symbol);String knownName=presetCode!=null?presetName:cached==null?null:cached.name;
@@ -494,7 +495,7 @@ final class FundScreens {
                         if(!linkBuy)throw new IllegalArgumentException("每笔定投都必须关联资金账户");
                         Ledger.FundBuy saved=target.buys.isEmpty()?null:target.buys.get(target.buys.size()-1);
                         if(saved==null)throw new IllegalArgumentException("定投买入记录创建失败");
-                        RecurringInvestments.record(candidate,target,saved);
+                        RecurringInvestments.record(candidate,target,saved,calendar);
                     }
                     m.commit(candidate,epoch);m.fundFocus=target.id;d.dismiss();m.render();if(recurring.isChecked()&&editing==null&&!target.fundType.contains("银行"))configurePlan(target);if(result==null)m.networkProblem(problem+"\n买入已保存，历史净值待获取。");
                 }catch(Exception e){d.getButton(-1).setEnabled(true);d.getButton(-1).setText("重新获取");if(result==null&&!problem.isEmpty())m.networkProblem(problem+"\n"+e.getMessage());else m.error(e);}});
@@ -508,27 +509,29 @@ final class FundScreens {
         LinearLayout form=m.col();form.setPadding(m.dp(16),0,m.dp(16),m.dp(14));
         EditText amount=m.field(form,"每期金额",fund.plan.enabled?Ledger.decimal(fund.plan.amount):"",true);
         EditText fee=m.field(form,"每期手续费",fund.plan.enabled?Ledger.decimal(fund.plan.fee):"0",true);
-        Spinner frequency=m.choices(form,"周期",new String[]{"每月","每周"},fund.plan.frequency.equals("每周")?1:0);
+        Spinner frequency=m.choices(form,"周期",new String[]{"每月","每周","每日"},fund.plan.frequency.equals("每日")?2:fund.plan.frequency.equals("每周")?1:0);
         EditText day=m.field(form,"执行日（每月 1-28；每周填写 1-7）",fund.plan.enabled?""+fund.plan.dayOfMonth:"1",true);
+        frequency.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,View v,int position,long id){day.setEnabled(position!=2);day.setHint(position==2?"每日自动跳过周末及休市日":"按周期填写执行日");}public void onNothingSelected(AdapterView<?> p){}});
+        EditText periods=m.field(form,"计划总期数（0为不限）",String.valueOf(fund.plan.totalPeriods),true);
         List<Ledger.Account> accounts=m.data.activeAccounts();String[] names=new String[accounts.size()+1];names[0]="请选择资金账户";
         for(int i=0;i<accounts.size();i++)names[i+1]=accounts.get(i).name+" · "+accounts.get(i).type;
         int selected=0;for(int i=0;i<accounts.size();i++)if(accounts.get(i).id==fund.plan.accountId)selected=i+1;
         Spinner account=m.choices(form,"定投资金账户（必选）",names,selected);
         EditText start=m.field(form,"开始日期 yyyy-MM-dd",fund.plan.startDate.isEmpty()?FundEngine.now().toLocalDate().toString():fund.plan.startDate,false);
-        form.addView(m.text("此处只管理计划和实际成交记录，不会向银行或基金平台自动扣款。到期后请在平台完成买入，再点登记本期。休市日确认按基金实际规则核对。",11,Ui.MUTED,false));
+        form.addView(m.text("此处只管理计划和实际成交记录，不会向银行或基金平台自动扣款。到期后请在平台完成买入，再点登记本期。每日计划仅交易工作日，跳过周末及已知休市日；达到总期数后自动结束。休市日历未覆盖的年份请自行核对。",11,Ui.MUTED,false));
         if(!fund.plan.enabled&&!fund.plan.records.isEmpty())form.addView(m.action("查看历史定投记录",()->planRecords(fund)));
         if(!fund.plan.nextDate.isEmpty())form.addView(m.text("下一计划日期："+fund.plan.nextDate+"（需在平台实际买入后登记）",12,Ui.ACCENT_DEEP,true));
-        TextView record=m.text(fund.plan.records.isEmpty()?"尚无定投记录":"已记录 "+fund.plan.records.size()+" 期定投，可在此修改配置。",11,MainActivity.MUTED,false);form.addView(record);
+        TextView record=m.text(fund.plan.records.isEmpty()?"尚无定投记录":"已登记 "+RecurringInvestments.completed(fund.plan)+" / "+(fund.plan.totalPeriods==0?"不限":fund.plan.totalPeriods)+" 期，可在此修改配置。",11,MainActivity.MUTED,false);form.addView(record);
         final AlertDialog[] planDialog={null};
-        if(fund.plan.enabled){form.addView(m.action("登记本期实际买入",()->{if(planDialog[0]!=null)planDialog[0].dismiss();buy(fund,null,fund.plan.amount,fund.plan.fee,fund.plan.accountId,true);}));form.addView(m.action("查看定投记录",()->planRecords(fund)));form.addView(m.action("暂停定投",()->{Ledger.Data c=m.copy();for(Ledger.Fund f:c.funds)if(f.id==fund.id)f.plan.enabled=false;m.commit(c);if(planDialog[0]!=null)planDialog[0].dismiss();m.render();m.toast("定投已暂停，历史记录保留");}));}
+        if(fund.plan.enabled&&!RecurringInvestments.complete(fund.plan)){form.addView(m.action("登记本期实际买入",()->{if(planDialog[0]!=null)planDialog[0].dismiss();buy(fund,null,fund.plan.amount,fund.plan.fee,fund.plan.accountId,true);}));form.addView(m.action("查看定投记录",()->planRecords(fund)));form.addView(m.action("暂停定投",()->{Ledger.Data c=m.copy();for(Ledger.Fund f:c.funds)if(f.id==fund.id)f.plan.enabled=false;m.commit(c);if(planDialog[0]!=null)planDialog[0].dismiss();m.render();m.toast("定投已暂停，历史记录保留");}));}
         AlertDialog d=AppIcons.dialog(m).setTitle(fund.plan.enabled?"查看 / 修改定投":"开启定投").setView(m.wrap(form)).setNegativeButton("取消",null).setPositiveButton("保存",null).create();planDialog[0]=d;d.show();
         d.getButton(-1).setOnClickListener(v->{try{
-            long value=Ledger.parseMoney(amount.getText().toString(),true),charge=Ledger.parseMoney(fee.getText().toString(),false);int interval=Integer.parseInt(day.getText().toString().trim());
+            long value=Ledger.parseMoney(amount.getText().toString(),true),charge=Ledger.parseMoney(fee.getText().toString(),false);int interval=frequency.getSelectedItemPosition()==2?1:Integer.parseInt(day.getText().toString().trim());int count=Integer.parseInt(periods.getText().toString().trim());if(count<0||count>10000)throw new IllegalArgumentException("计划总期数应为0至10000");
             if(account.getSelectedItemPosition()==0)throw new IllegalArgumentException("请选择定投资金账户");if(interval<1||interval>(frequency.getSelectedItemPosition()==0?28:7))throw new IllegalArgumentException("执行日范围无效");
             LocalDate begin=LocalDate.parse(start.getText().toString().trim());if(begin.getYear()<2000||begin.getYear()>2100)throw new IllegalArgumentException("开始日期应在2000至2100年");
             Ledger.Data candidate=m.copy();Ledger.Fund target=null;for(Ledger.Fund f:candidate.funds)if(f.id==fund.id)target=f;if(target==null)throw new IllegalArgumentException("基金不存在");
-            target.plan.enabled=true;target.plan.amount=value;target.plan.fee=charge;target.plan.dayOfMonth=interval;target.plan.frequency=frequency.getSelectedItem().toString();target.plan.accountId=accounts.get(account.getSelectedItemPosition()-1).id;target.plan.startDate=begin.toString();
-            LocalDate anchor=begin;for(Ledger.RecurringRecord r:target.plan.records)if(r.status.equals("已登记")&&!r.date.isBefore(anchor))anchor=r.date.plusDays(1);target.plan.nextDate=RecurringInvestments.first(target.plan,anchor).toString();m.commit(candidate);d.dismiss();m.render();
+            target.plan.totalPeriods=count;target.plan.enabled=!RecurringInvestments.complete(target.plan);target.plan.amount=value;target.plan.fee=charge;target.plan.dayOfMonth=interval;target.plan.frequency=frequency.getSelectedItem().toString();target.plan.accountId=accounts.get(account.getSelectedItemPosition()-1).id;target.plan.startDate=begin.toString();
+            LocalDate anchor=begin;for(Ledger.RecurringRecord r:target.plan.records)if(r.status.equals("已登记")&&!r.date.isBefore(anchor))anchor=r.date.plusDays(1);target.plan.nextDate=target.plan.enabled?RecurringInvestments.first(target.plan,anchor,calendar()).toString():"";m.commit(candidate);d.dismiss();m.render();
         }catch(Exception e){m.error(e);}});
     }
     void planRecords(Ledger.Fund fund){

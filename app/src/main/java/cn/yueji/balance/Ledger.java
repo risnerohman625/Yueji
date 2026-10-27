@@ -80,6 +80,7 @@ public final class Ledger {
   public boolean enabled;
   public long amount,fee,accountId;
   public int dayOfMonth=1;
+  public int totalPeriods;
   public String frequency="每月",startDate="",nextDate="";
   public final List<RecurringRecord> records=new ArrayList<>();
  }

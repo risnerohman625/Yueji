@@ -19,7 +19,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class V475UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;final V43UiTest h=old.h;
-    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",26).commit();t.context.getSharedPreferences("market-refresh",0).edit().clear().commit();}
+    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",27).commit();t.context.getSharedPreferences("market-refresh",0).edit().clear().commit();}
     @After public void after()throws Exception{old.after();}
     FundClient.Quote quote(String code,LocalDate date){FundClient.Quote q=new FundClient.Quote();q.code=code;q.name="基金"+code;q.date=date.toString();q.fundType="债券型";q.nav=new BigDecimal("1.10");q.previous=new BigDecimal("1.09");q.history.put(date.minusDays(1),q.previous);q.history.put(date,q.nav);q.complete=true;return q;}
     @Test public void automaticRefreshDeduplicatesSkipsPublishedAndManualAlwaysWorks(){
