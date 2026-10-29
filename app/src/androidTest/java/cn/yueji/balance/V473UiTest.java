@@ -3,7 +3,7 @@ import android.graphics.Rect;import android.view.*;import android.widget.*;impor
 @RunWith(AndroidJUnit4.class)
 public class V473UiTest {
  final V470UiTest old=new V470UiTest();final V43UiTest h=old.h;final YuejiTest t=old.t;
- @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",27).commit();}
+ @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",28).commit();}
  @After public void after()throws Exception{old.after();}
  View desc(String value){return h.desc(t.app.root,value);}
  void detail(){t.start(old.sample());t.ui(()->t.app.watchScreens.open("006431"));}

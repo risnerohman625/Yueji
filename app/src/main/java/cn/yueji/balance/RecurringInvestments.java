@@ -11,9 +11,10 @@ final class RecurringInvestments {
         validateSchedule(p);
         if("每日".equals(p.frequency))return calendar.next(after);
         if("每周".equals(p.frequency)){LocalDate n=after.plusDays(1);while(n.getDayOfWeek().getValue()!=p.dayOfMonth)n=n.plusDays(1);return n;}
-        LocalDate n=after.withDayOfMonth(p.dayOfMonth);return n.isAfter(after)?n:n.plusMonths(1);
+        if("每两周".equals(p.frequency)){LocalDate n=after.plusWeeks(2);while(n.getDayOfWeek().getValue()!=p.dayOfMonth)n=n.plusDays(1);return calendar.onOrAfter(n);}
+        YearMonth month=YearMonth.from(after);LocalDate n=month.atDay(Math.min(p.dayOfMonth,month.lengthOfMonth()));if(!n.isAfter(after)){month=month.plusMonths(1);n=month.atDay(Math.min(p.dayOfMonth,month.lengthOfMonth()));}return n;
     }
-    static void validateSchedule(Ledger.RecurringPlan p){if(!Arrays.asList("每日","每周","每月").contains(p.frequency)||p.dayOfMonth<1||p.dayOfMonth>(p.frequency.equals("每周")?7:28)||p.totalPeriods<0||p.totalPeriods>10000)throw new IllegalArgumentException("定投周期、执行日或期数无效");}
+    static void validateSchedule(Ledger.RecurringPlan p){if(!Arrays.asList("每日","每周","每两周","每月").contains(p.frequency)||p.dayOfMonth<1||p.dayOfMonth>(p.frequency.equals("每周")||p.frequency.equals("每两周")?7:31)||p.totalPeriods<0||p.totalPeriods>10000)throw new IllegalArgumentException("定投周期、执行日或期数无效");if(p.automatic){LocalDateTime.parse(p.firstAt);if(p.enabled){LocalDateTime.parse(p.nextAt);LocalDate.parse(p.nextNominal);}}}
     static LocalDate first(Ledger.RecurringPlan p,LocalDate from){return next(p,from.minusDays(1));}
     static LocalDate first(Ledger.RecurringPlan p,LocalDate from,TradingCalendar calendar){return next(p,from.minusDays(1),calendar);}
     static int completed(Ledger.RecurringPlan p){int n=0;for(Ledger.RecurringRecord r:p.records)if("已登记".equals(r.status))n++;return n;}

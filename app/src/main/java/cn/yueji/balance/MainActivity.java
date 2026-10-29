@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
     Ledger.Entry entryEditing; Ledger.Snapshot snapshotEditing; HistoryImport.Result pendingImport;
     LocalDate pendingFrom,pendingTo;boolean pendingExpense,pendingIncome,pendingReimburse;
     boolean refreshing=false;long fundFocus;String watchFocus=""; final ArrayDeque<String> backStack=new ArrayDeque<>();
-    FundScreens fundScreens;WatchlistScreens watchScreens;
+    FundScreens fundScreens;WatchlistScreens watchScreens;FundPurchaseScreen fundPurchaseScreen;FundSaleScreen fundSaleScreen;
     LabelScreens labelScreens;
     final Map<String,String> searches=new HashMap<>(),monthFilters=new HashMap<>();
     final Map<String,LinearLayout> sectionContents=new HashMap<>();
@@ -54,7 +54,9 @@ public class MainActivity extends Activity {
     boolean fundPageVisited;
     String firstMarketVisit="";
     final Handler marketHandler=new Handler(Looper.getMainLooper());
-    final Runnable marketTick=new Runnable(){public void run(){if(data!=null&&data.settings.autoRefresh&&MarketSession.open(MainActivity.this))refreshFunds(true);marketHandler.postDelayed(this,60_000);}};
+    final Runnable marketTick=new Runnable(){public void run(){processInvestments();if(data!=null&&data.settings.autoRefresh&&MarketSession.open(MainActivity.this))refreshFunds(true);marketHandler.postDelayed(this,60_000);}};
+    boolean processingInvestments;
+    void processInvestments(){if(processingInvestments||isFinishing())return;processingInvestments=true;long epoch=LedgerStore.epoch();new Thread(()->{boolean changed=false;try{changed=InvestmentProcessing.run(this);}catch(Exception ignored){}boolean refresh=changed;runOnUiThread(()->{processingInvestments=false;if(refresh&&!isDestroyed()&&!isFinishing()&&epoch==LedgerStore.epoch()&&!page.equals("fund_purchase")&&!page.equals("fund_sale"))render();});},"investment-catchup").start();}
     int assetTab=2,assetPeriod;
     TextView refreshPermissionText;
 
@@ -123,6 +125,8 @@ public class MainActivity extends Activity {
     void saveTabOrder(int[] order){getPreferences(0).edit().putString("tabOrder",order[0]+","+order[1]+","+order[2]).apply();}
     @Override public void onCreate(Bundle b){
         super.onCreate(b);if(b==null)AppIcons.beginProcess(this);AppIcons.sync(this);AppIcons.apply(this);ui=new Ui(this);store=new LedgerStore(this);fundScreens=new FundScreens(this);watchScreens=new WatchlistScreens(this);labelScreens=new LabelScreens(this);bankScreens=new BankScreens(this);debtScreens=new DebtScreens(this);getSystemService(NotificationManager.class).cancel(4260);getSharedPreferences("bank-capture",0).edit().clear().apply();tab=tabOrder()[0];
+        fundPurchaseScreen=new FundPurchaseScreen(this);fundSaleScreen=new FundSaleScreen(this);
+        if(b!=null){fundPurchaseScreen.restoreState(b.getBundle("purchasePage"));fundSaleScreen.restoreState(b.getBundle("salePage"));}
         if(b!=null){assetTab=b.getInt("assetTab",2);assetPeriod=b.getInt("assetPeriod",0);bankScreens.restore(b.getBundle("bankScreens"));}
         if(b!=null){String savedMonth=b.getString("monthFocus");if(savedMonth!=null)monthFocus=YearMonth.parse(savedMonth);}
         if(b!=null){tab=b.getInt("tab");year=b.getInt("year",year);flowTab=b.getInt("flowTab");sortAmount=b.getBoolean("sortAmount");page=b.getString("page","");accountId=b.getLong("account");fundFocus=b.getLong("fund");categoryFocus=b.getString("category","");String[] stack=b.getStringArray("backStack");if(stack!=null)backStack.addAll(Arrays.asList(stack));String[] sections=b.getStringArray("sections");if(sections!=null)openSections.addAll(Arrays.asList(sections));Ledger.Data saved=store.load();for(Ledger.Entry e:saved.entries)if(e.id==b.getLong("editingEntry"))entryEditing=e;for(Ledger.Snapshot s:saved.snapshots)if(s.id==b.getLong("editingSnapshot"))snapshotEditing=s;}
@@ -136,7 +140,7 @@ public class MainActivity extends Activity {
             getPreferences(0).edit().putBoolean("asked",true).apply();requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},4);
         }
     }
-    @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);b.putString("watchFocus",watchFocus);b.putString("watchGroup",watchScreens.activeGroup);b.putBoolean("watchRules",watchScreens.rulesExpanded);b.putInt("assetTab",assetTab);b.putInt("assetPeriod",assetPeriod);b.putBoolean("fundPageVisited",fundPageVisited);b.putLong("openImportBatch",openImportBatch);b.putBundle("bankScreens",bankScreens.save());b.putString("monthFocus",monthFocus.toString());b.putInt("tab",tab);b.putInt("year",year);b.putInt("flowTab",flowTab);b.putBoolean("sortAmount",sortAmount);b.putString("page",page);b.putLong("account",accountId);b.putLong("fund",fundFocus);b.putLong("editingEntry",entryEditing==null?0:entryEditing.id);b.putLong("editingSnapshot",snapshotEditing==null?0:snapshotEditing.id);b.putStringArray("backStack",backStack.toArray(new String[0]));b.putString("category",categoryFocus);b.putStringArray("sections",openSections.toArray(new String[0]));b.putInt("detailYear",detailYear);b.putInt("yearKind",yearKind);captureDraft();if(formDraft!=null)b.putBundle("formDraft",formDraft.values);Bundle sq=new Bundle(),mf=new Bundle();for(String k:searches.keySet())sq.putString(k,searches.get(k));for(String k:monthFilters.keySet())mf.putString(k,monthFilters.get(k));b.putBundle("searches",sq);b.putBundle("monthFilters",mf);b.putInt("reimburseFilter",reimburseFilter);b.putBundle("labelEditor",labelScreens.saveState());}
+    @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);b.putBundle("purchasePage",fundPurchaseScreen.saveState());b.putBundle("salePage",fundSaleScreen.saveState());b.putString("watchFocus",watchFocus);b.putString("watchGroup",watchScreens.activeGroup);b.putBoolean("watchRules",watchScreens.rulesExpanded);b.putInt("assetTab",assetTab);b.putInt("assetPeriod",assetPeriod);b.putBoolean("fundPageVisited",fundPageVisited);b.putLong("openImportBatch",openImportBatch);b.putBundle("bankScreens",bankScreens.save());b.putString("monthFocus",monthFocus.toString());b.putInt("tab",tab);b.putInt("year",year);b.putInt("flowTab",flowTab);b.putBoolean("sortAmount",sortAmount);b.putString("page",page);b.putLong("account",accountId);b.putLong("fund",fundFocus);b.putLong("editingEntry",entryEditing==null?0:entryEditing.id);b.putLong("editingSnapshot",snapshotEditing==null?0:snapshotEditing.id);b.putStringArray("backStack",backStack.toArray(new String[0]));b.putString("category",categoryFocus);b.putStringArray("sections",openSections.toArray(new String[0]));b.putInt("detailYear",detailYear);b.putInt("yearKind",yearKind);captureDraft();if(formDraft!=null)b.putBundle("formDraft",formDraft.values);Bundle sq=new Bundle(),mf=new Bundle();for(String k:searches.keySet())sq.putString(k,searches.get(k));for(String k:monthFilters.keySet())mf.putString(k,monthFilters.get(k));b.putBundle("searches",sq);b.putBundle("monthFilters",mf);b.putInt("reimburseFilter",reimburseFilter);b.putBundle("labelEditor",labelScreens.saveState());}
     void handleDestination(Intent intent){
         if(intent.hasExtra("openTab")){tab=intent.getIntExtra("openTab",TAB_FUNDS);page="";backStack.clear();intent.removeExtra("openTab");}
         if("check".equals(intent.getStringExtra("openPage"))){tab=TAB_ACCOUNTS;page="check";snapshotEditing=null;backStack.clear();backStack.push("");intent.removeExtra("openPage");}
@@ -145,7 +149,7 @@ public class MainActivity extends Activity {
     @Override protected void onPause(){marketHandler.removeCallbacks(marketTick);super.onPause();AppLock.markBackground();}
     AppUpdates appUpdates;
     AppUpdates updates(){if(appUpdates==null)appUpdates=new AppUpdates(this);return appUpdates;}
-    @Override protected void onResume(){super.onResume();marketHandler.removeCallbacks(marketTick);marketHandler.postDelayed(marketTick,60_000);getWindow().getDecorView().post(()->{if(!isFinishing()&&activeLock==null)updates().startup();if(tab==TAB_FUNDS||page.equals("fund_watchlist"))autoRefreshFunds();});if(data!=null&&data.settings.appLockEnabled&&AppLock.shouldLockNow(this))render();}
+    @Override protected void onResume(){super.onResume();processInvestments();marketHandler.removeCallbacks(marketTick);marketHandler.postDelayed(marketTick,60_000);getWindow().getDecorView().post(()->{if(!isFinishing()&&activeLock==null)updates().startup();if(tab==TAB_FUNDS||page.equals("fund_watchlist"))autoRefreshFunds();});if(data!=null&&data.settings.appLockEnabled&&AppLock.shouldLockNow(this))render();}
     @Override protected void onDestroy(){marketHandler.removeCallbacks(marketTick);if(appUpdates!=null)appUpdates.dispose();if(activeLock!=null)activeLock.dismiss();if(networkDialog!=null)networkDialog.dismiss();if(iconChooser!=null)iconChooser.dismiss();if(watchScreens!=null)watchScreens.dispose();store.close();super.onDestroy();}
     void showLock(LockOverlay.Mode mode,Runnable done,Runnable cancel){
         if(activeLock!=null)return;
@@ -284,7 +288,8 @@ public class MainActivity extends Activity {
             case "income_detail":incomeDetail();break;case "income_category":incomeCategory();break;case "large_detail":entryDetail(Ledger.LARGE);break;case "reimburse_detail":entryDetail(Ledger.REIMBURSE);break;
             case "income_form":entryForm(Ledger.INCOME);break;case "large_form":entryForm(Ledger.LARGE);break;case "reimburse_form":entryForm(Ledger.REIMBURSE);break;
             case "fund_detail":fundScreens.detail(data,fundFocus,false);break;case "fund_total":fundScreens.detail(data,0,true);break;case "fund_profit":fundScreens.profitList(data);break;case "fund_trades":fundScreens.trades(data,fundFocus);break;case "fund_watchlist":watchScreens.show();body.post(this::autoRefreshFunds);break;case "watch_detail":watchScreens.detail(watchFocus);break;
-            case "bank_review":bankScreens.review();break;case "bank_detail":bankScreens.detail();break;case "bank_records":bankScreens.records();break;case "bank_flows":bankScreens.flows();break;case "bank_income_preview":bankScreens.incomePreview();break;
+            case "fund_purchase":fundPurchaseScreen.show();break;case "fund_sale":fundSaleScreen.show();break;
+            case "bank_review":bankScreens.review();break;case "bank_detail":bankScreens.detail();break;case "bank_records":bankScreens.records();break;case "bank_flows":bankScreens.flows();break;
             case "history":historyPage();break;case "import_preview":importPreview();break;case "investment_transfers":page="fund_watchlist";watchScreens.show();break;
             case "import_records":new ImportScreens(this,ImportJournal.RECORDS).show();break;
             case "import_funds":new ImportScreens(this,ImportJournal.FUNDS).show();break;
@@ -309,8 +314,9 @@ public class MainActivity extends Activity {
     }
     final class DateControl {
         LocalDateTime at;TextView date,time;Runnable changed=()->{};boolean checkpoint;
-        DateControl(LinearLayout parent,String title,LocalDateTime at,boolean checkpoint){this.at=at;this.checkpoint=checkpoint;label(parent,title);LinearLayout r=row();
-            date=action("",()->{DatePickerDialog picker=new DatePickerDialog(MainActivity.this,(p,y,m,d)->{this.at=LocalDate.of(y,m+1,d).atTime(checkpoint&&d==1?LocalTime.MIDNIGHT:this.at.toLocalTime());update();changed.run();},this.at.getYear(),this.at.getMonthValue()-1,this.at.getDayOfMonth());picker.getDatePicker().setMaxDate(System.currentTimeMillis());picker.show();});
+        DateControl(LinearLayout parent,String title,LocalDateTime at,boolean checkpoint){this(parent,title,at,checkpoint,false);}
+        DateControl(LinearLayout parent,String title,LocalDateTime at,boolean checkpoint,boolean allowFuture){this.at=at;this.checkpoint=checkpoint;label(parent,title);LinearLayout r=row();
+            date=action("",()->{DatePickerDialog picker=new DatePickerDialog(MainActivity.this,(p,y,m,d)->{this.at=LocalDate.of(y,m+1,d).atTime(checkpoint&&d==1?LocalTime.MIDNIGHT:this.at.toLocalTime());update();changed.run();},this.at.getYear(),this.at.getMonthValue()-1,this.at.getDayOfMonth());if(!allowFuture)picker.getDatePicker().setMaxDate(System.currentTimeMillis());picker.show();});
             time=action("",()->new TimePickerDialog(MainActivity.this,(p,h,m)->{this.at=this.at.withHour(h).withMinute(m).withSecond(0).withNano(0);update();changed.run();},this.at.getHour(),this.at.getMinute(),true).show());date.setContentDescription(title+"日期");time.setContentDescription(title+"时间");date.setTag(this);weight(r,date);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-2,-2);tp.leftMargin=dp(8);r.addView(time,tp);parent.addView(r);update();
         }
         void update(){date.setText(at.toLocalDate().toString());time.setText(at.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")));}
@@ -689,7 +695,7 @@ public class MainActivity extends Activity {
         updates().about(card(body));
         for(int i=0;i<body.getChildCount();i++){View child=body.getChildAt(i);if(child.getLayoutParams() instanceof LinearLayout.LayoutParams){LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)child.getLayoutParams();lp.bottomMargin=Math.min(lp.bottomMargin,dp(8));child.setLayoutParams(lp);}}
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.8";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.9";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}

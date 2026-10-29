@@ -13,7 +13,7 @@ final class InvestmentCash {
         List<Flow> result=new ArrayList<>();
         for(Ledger.Fund fund:data.funds)for(Ledger.FundBuy buy:fund.buys){
             if(buy.buyAccountLinked)result.add(new Flow(buy.id,buy.buyAccountId,-buy.amount,buy.at));
-            if(buy.saleAccountLinked&&buy.saleDate!=null)result.add(new Flow(buy.id,buy.saleAccountId,buy.saleAmount,buy.saleAt==null?buy.saleDate.atTime(15,0):buy.saleAt));
+            if(buy.saleAccountLinked&&buy.saleDate!=null&&(buy.saleAt==null||!buy.saleAt.isAfter(FundEngine.now())))result.add(new Flow(buy.id,buy.saleAccountId,buy.saleAmount,buy.saleAt==null?buy.saleDate.atTime(15,0):buy.saleAt));
         }
         for(BankLedger.Product product:data.banks){
             if(product.openingAccountLinked&&!product.observations.isEmpty()){

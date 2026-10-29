@@ -21,7 +21,7 @@ import static org.junit.Assert.*;
 public class V474UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;
     @Before public void before(){
-        old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",27).commit();
+        old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",28).commit();
     }
     @After public void after()throws Exception{old.after();}
     View text(String value){return t.findText(t.app.body,value);}
@@ -58,15 +58,8 @@ public class V474UiTest {
     @Test public void bankIncomeEntryIsManualAndPersistsSignedDailyReturns(){
         Ledger.Data data=old.sample();BankLedger.Draft draft=new BankLedger.Draft();draft.name="手动银行理财";draft.balance=100000L;draft.at=LocalDateTime.of(2026,10,23,10,0);
         BankLedger.Product product=BankLedger.apply(data,0,draft,false,null);
-        t.start(data);t.ui(()->{t.app.bankScreens.focus=product.id;t.app.bankScreens.importIncome();});
-        assertNotNull(t.device.wait(Until.findObject(By.text("添加每日收益")),2000));
-        t.device.findObject(By.desc("累计收益")).setText("-1.04");
-        t.ui(()->text("添加每日收益").performClick());
-        t.device.wait(Until.findObject(By.desc("收益日期 yyyy-MM-dd")),3000).setText("2026-10-23");
-        t.device.findObject(By.desc("当日收益（元，可为负数）")).setText("-1.04");
-        t.device.findObject(By.text("添加")).click();
-        assertNotNull(t.device.wait(Until.findObject(By.textContains("2026-10-23")),2000));
-        t.ui(()->text("确认导入收益").performClick());
+        t.start(data);t.ui(()->{t.app.bankScreens.focus=product.id;t.app.bankScreens.editDay(LocalDate.of(2026,10,23));});
+        t.device.wait(Until.findObject(By.desc("当日收益（元，可为负数）")),3000).setText("-1.04");t.device.findObject(By.text("确认")).click();t.instrument.waitForIdleSync();
         assertEquals(Long.valueOf(-104),BankLedger.daily(BankLedger.find(t.store.load(),product.id),LocalDate.of(2026,10,23)));
         assertFalse(t.device.hasObject(By.text("截图输入")));old.shot("v474-bank-manual.png");
     }

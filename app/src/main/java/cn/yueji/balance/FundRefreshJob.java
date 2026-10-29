@@ -10,7 +10,7 @@ public final class FundRefreshJob extends JobService {
     private volatile long runId;
     static final long PERIOD=2*60*60*1000L;
     public static void schedule(Context c){
-        LedgerStore store=new LedgerStore(c);boolean enabled;int minutes;try{Ledger.Settings settings=store.load().settings;enabled=settings.autoRefresh;minutes=MarketSession.interval(settings.refreshMinutes);}finally{store.close();}
+        LedgerStore store=new LedgerStore(c);boolean enabled;int minutes;try{Ledger.Data data=store.load();Ledger.Settings settings=data.settings;enabled=settings.autoRefresh;for(Ledger.Fund f:data.funds)enabled|=f.plan.automatic&&f.plan.enabled;for(Ledger.FundOrder o:data.fundOrders)enabled|=!"已完成".equals(o.status);minutes=MarketSession.interval(settings.refreshMinutes);}finally{store.close();}
         JobScheduler scheduler=c.getSystemService(JobScheduler.class);
         if(!enabled){scheduler.cancel(221);return;}
         long period=minutes*60_000L;
@@ -21,6 +21,7 @@ public final class FundRefreshJob extends JobService {
         scheduler.schedule(job);
     }
     @Override public boolean onStartJob(JobParameters params){
+        try{InvestmentProcessing.run(this);}catch(Exception ignored){}
         if(!MarketSession.open(this)){
             getSharedPreferences("fund-job",0).edit().putString("lastState","closed").putLong("checkedAt",System.currentTimeMillis()).apply();return false;
         }

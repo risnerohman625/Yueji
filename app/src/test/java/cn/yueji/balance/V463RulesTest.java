@@ -50,7 +50,7 @@ public class V463RulesTest {
         Ledger.Data d=data();DebtLedger.Loan loan=loan(d,100000);DebtLedger.repay(d,loan.id,33333,day,"备注");d.settings.lossOnly=false;
         Ledger.Data restored=LedgerStore.decode(LedgerStore.encode(d));LedgerStore.validate(restored);
         assertEquals(66667,DebtLedger.total(restored,LocalDate.now()));assertEquals("备注",restored.debts.get(0).payments.get(0).note);assertFalse(restored.settings.lossOnly);
-        assertEquals(13,new org.json.JSONObject(LedgerStore.encode(d)).getInt("version"));
+        assertEquals(14,new org.json.JSONObject(LedgerStore.encode(d)).getInt("version"));
     }
     @Test public void oldBackupDoesNotInventDebts()throws Exception{
         org.json.JSONObject json=new org.json.JSONObject(LedgerStore.encode(data()));json.put("version",7);json.remove("debts");

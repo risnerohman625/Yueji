@@ -59,6 +59,7 @@ public final class LedgerStore extends SQLiteOpenHelper {
  }
  public static void validate(Ledger.Data d){
   RecurringInvestments.reconcile(d);
+  FundSettlement.validate(d);
   AccountCash.rebuild(d);
   ImportJournal.validate(d);
   DebtLedger.validate(d);
@@ -95,7 +96,7 @@ public final class LedgerStore extends SQLiteOpenHelper {
  public String exportJson(){return encode(load());}
  public Ledger.Data parseBackup(String json){if(json==null||json.length()>64*1024*1024)throw new IllegalArgumentException("备份文件无效或超过64MB");Ledger.Data d=decode(json);validate(d);return d;}
  static String encode(Ledger.Data d){try{
-  JSONObject root=new JSONObject().put("format","yueji-backup").put("version",13).put("imports",ImportJournal.encode(d)).put("debts",DebtLedger.encode(d));JSONArray aa=new JSONArray(),ss=new JSONArray(),ee=new JSONArray(),hh=new JSONArray(),ff=new JSONArray();
+  JSONObject root=new JSONObject().put("format","yueji-backup").put("version",14).put("fundOrders",FundOrderCodec.encode(d)).put("imports",ImportJournal.encode(d)).put("debts",DebtLedger.encode(d));JSONArray aa=new JSONArray(),ss=new JSONArray(),ee=new JSONArray(),hh=new JSONArray(),ff=new JSONArray();
   for(Ledger.Account a:d.accounts)aa.put(new JSONObject().put("id",a.id).put("name",a.name).put("type",a.type).put("opening",a.opening).put("created",a.created).put("deletedAt",a.deletedAt==null?JSONObject.NULL:a.deletedAt.toString()));
   for(Ledger.Snapshot s:d.snapshots){JSONObject b=new JSONObject();for(Map.Entry<Long,Long> e:s.balances.entrySet())b.put(""+e.getKey(),e.getValue());ss.put(new JSONObject().put("id",s.id).put("at",s.at).put("note",s.note).put("balances",b).put("partial",s.partial).put("cashGenerated",s.cashGenerated).put("cashAccounts",new JSONArray(s.cashAccounts)));}
   for(Ledger.Entry e:d.entries){JSONArray receipts=new JSONArray();for(Ledger.Receipt r:e.receipts)receipts.put(new JSONObject().put("amount",r.amount).put("at",r.at).put("accountId",r.accountId).put("cashLinked",r.cashLinked));ee.put(new JSONObject().put("id",e.id).put("kind",e.kind).put("amount",e.amount).put("at",e.at).put("title",e.title).put("note",e.note).put("accountId",e.accountId).put("cashLinked",e.cashLinked).put("category",e.category).put("status",e.status).put("received",e.receivedTotal()).put("receivedAt",e.receivedAt==null?JSONObject.NULL:e.receivedAt.toString()).put("receipts",receipts));}
@@ -112,8 +113,8 @@ public final class LedgerStore extends SQLiteOpenHelper {
   root.put("settings",new JSONObject().put("day1",d.settings.checkDay1).put("day2",d.settings.checkDay2).put("reminderHour",d.settings.reminderHour).put("checkNotifications",d.settings.checkNotifications).put("fundNotifications",d.settings.fundNotifications).put("autoRefresh",d.settings.autoRefresh).put("lossOnly",d.settings.lossOnly).put("refreshMinutes",d.settings.refreshMinutes));return root.put("accounts",aa).put("snapshots",ss).put("entries",ee).put("history",hh).put("funds",ff).put("categories",new JSONArray(d.categories)).put("categoryIcons",new JSONObject(d.categoryIcons)).toString(2);
  }catch(JSONException e){throw new IllegalArgumentException("数据编码失败",e);}}
  static Ledger.Data decode(String json){try{
-  JSONObject root=new JSONObject(json);if(!"yueji-backup".equals(root.getString("format"))||root.getInt("version")<1||root.getInt("version")>13)throw new IllegalArgumentException("不支持的备份版本");
-  for(String key:new String[]{"accounts","snapshots","entries","history","funds","banks","watchFunds","watchGroups","watchAllIncluded","imports","debts","categories"})if(root.has(key)&&!(root.get(key) instanceof JSONArray))throw new IllegalArgumentException(key+" 必须是列表");
+  JSONObject root=new JSONObject(json);if(!"yueji-backup".equals(root.getString("format"))||root.getInt("version")<1||root.getInt("version")>14)throw new IllegalArgumentException("不支持的备份版本");
+  for(String key:new String[]{"accounts","snapshots","entries","history","funds","banks","watchFunds","watchGroups","watchAllIncluded","fundOrders","imports","debts","categories"})if(root.has(key)&&!(root.get(key) instanceof JSONArray))throw new IllegalArgumentException(key+" 必须是列表");
   Ledger.Data d=new Ledger.Data();ImportJournal.decode(d,root.optJSONArray("imports"));DebtLedger.decode(d,root.optJSONArray("debts"));JSONArray aa=root.getJSONArray("accounts"),ss=root.getJSONArray("snapshots"),ee=root.getJSONArray("entries");
   for(int i=0;i<aa.length();i++){JSONObject o=aa.getJSONObject(i);Ledger.Account a=new Ledger.Account(o.getLong("id"),o.getString("name"),o.getString("type"));if(o.has("created")){a.created=LocalDateTime.parse(o.getString("created"));a.opening=o.getLong("opening");}if(!o.isNull("deletedAt"))a.deletedAt=LocalDateTime.parse(o.getString("deletedAt"));d.accounts.add(a);}
   for(int i=0;i<ss.length();i++){JSONObject o=ss.getJSONObject(i);Ledger.Snapshot s=new Ledger.Snapshot(o.getLong("id"),LocalDateTime.parse(o.getString("at")),o.optString("note"));s.partial=o.optBoolean("partial");s.cashGenerated=o.optBoolean("cashGenerated");JSONArray cash=o.optJSONArray("cashAccounts");if(cash!=null)for(int k=0;k<cash.length();k++)s.cashAccounts.add(cash.getLong(k));JSONObject b=o.getJSONObject("balances");Iterator<String> keys=b.keys();while(keys.hasNext()){String k=keys.next();s.balances.put(Long.parseLong(k),b.getLong(k));}d.snapshots.add(s);}d.sort();
@@ -133,6 +134,6 @@ public final class LedgerStore extends SQLiteOpenHelper {
   d.watchRange=Math.max(0,Math.min(9,root.optInt("watchRange",4)));d.watchSort=Math.max(0,Math.min(2,root.optInt("watchSort",0)));d.watchDescending=root.optBoolean("watchDescending",true);
   JSONObject settings=root.optJSONObject("settings");if(settings!=null){d.settings.checkDay1=settings.optInt("day1",1);d.settings.checkDay2=settings.optInt("day2",15);d.settings.reminderHour=settings.optInt("reminderHour",9);d.settings.checkNotifications=settings.optBoolean("checkNotifications",true);d.settings.fundNotifications=settings.optBoolean("fundNotifications",true);d.settings.autoRefresh=settings.optBoolean("autoRefresh",true);d.settings.lossOnly=settings.optBoolean("lossOnly",true);d.settings.refreshMinutes=MarketSession.interval(settings.optInt("refreshMinutes",120));}JSONArray cc=root.optJSONArray("categories");if(cc!=null){d.categories.clear();for(int i=0;i<cc.length();i++)d.categories.add(cc.getString(i));}for(Ledger.Entry e:d.entries)if(e.income&&!d.categories.contains(e.category))d.categories.add(e.category);
   JSONObject icons=root.optJSONObject("categoryIcons");if(icons!=null){d.categoryIcons.clear();Iterator<String> names=icons.keys();while(names.hasNext()){String name=names.next();d.categoryIcons.put(name,icons.getString(name));}}
-  d.ensureIcons();d.sort();return d;
+  FundOrderCodec.decode(d,root.optJSONArray("fundOrders"));d.ensureIcons();d.sort();return d;
  }catch(Exception e){throw new IllegalArgumentException("备份内容无效："+e.getMessage(),e);}}
 }

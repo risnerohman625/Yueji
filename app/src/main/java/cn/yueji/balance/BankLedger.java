@@ -63,13 +63,17 @@ final class BankLedger {
         Observation latest=latest(p);return latest==null||latest.cumulative==null;
     }
     static Long week(Product p,LocalDate start){
+        if(start.equals(monday(FundEngine.now().toLocalDate())))return recordedWeek(p,start);
         Observation found=null;
         for(Observation o:p.observations)if(o.weekStart.equals(start)&&o.weekly!=null)found=o;
         // A platform's "this week" may span a sale and repurchase. Do not allocate it across that transition.
         for(Event e:p.events)if(e.kind.equals("CHANGE")&&!e.at.toLocalDate().isBefore(start)&&e.at.toLocalDate().isBefore(start.plusDays(7)))return null;
         Long explicit=null;for(Observation o:p.observations)if(o.weeks.containsKey(start))explicit=o.weeks.get(start);
         if(explicit!=null)return explicit;
-        return found==null?null:found.weekly;
+        if(found!=null)return found.weekly;Long total=null;for(Map.Entry<LocalDate,Long> entry:BankAccounting.daily(p).entrySet())if(!entry.getKey().isBefore(start)&&entry.getKey().isBefore(start.plusDays(7)))total=total==null?entry.getValue():Math.addExact(total,entry.getValue());return total;
+    }
+    static Long recordedWeek(Product p,LocalDate start){
+        Long sum=null;for(Map.Entry<LocalDate,Long> entry:BankAccounting.daily(p).entrySet())if(!entry.getKey().isBefore(start)&&entry.getKey().isBefore(start.plusDays(7))&&!entry.getKey().isAfter(FundEngine.now().toLocalDate()))sum=sum==null?entry.getValue():Math.addExact(sum,entry.getValue());return sum;
     }
     static Long dailyAverage(Product p,LocalDate day){
         return daily(p,day);

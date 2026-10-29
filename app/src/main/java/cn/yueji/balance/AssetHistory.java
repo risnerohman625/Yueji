@@ -62,18 +62,19 @@ final class AssetHistory {
     }
     static Long fundAt(Ledger.Fund f,LocalDateTime time){
         LocalDate day=time.toLocalDate();LocalDate first=FundEngine.firstDate(f);
+        if(f.buys.isEmpty()&&(f.plan.automatic||f.pendingOrder))return 0L;
         if(first==null||day.isBefore(first))return 0L;
         Map.Entry<LocalDate,BigDecimal> quote=f.prices.floorEntry(day);
         BigDecimal nav=quote==null&&day.toString().equals(f.navDate)?f.nav:quote==null?null:quote.getValue();
         if(f.buys.isEmpty())return f.shares.signum()==0?0L:nav==null?null:FundEngine.cents(f.shares.multiply(nav));
         long total=0;
-        for(Ledger.FundBuy b:f.buys)if(!b.at.isAfter(time)&&FundEngine.active(b,day)){
+        for(Ledger.FundBuy b:f.buys)if(!b.at.isAfter(time)&&(b.positionAt==null||!b.positionAt.isAfter(time))&&(b.saleDate==null||day.isBefore(b.saleDate))){
             if(b.confirmDate==null||day.isBefore(b.confirmDate))total=Math.addExact(total,b.amount);
             else{
                 if(nav==null||b.units.signum()<=0)return null;
                 total=Math.addExact(total,FundEngine.cents(FundEngine.unitsAt(f,b,day).multiply(nav)));
             }
-        }
+        }else if(b.saleOrderId>0&&b.saleDate!=null&&!day.isBefore(b.saleDate)&&(b.releasePending||b.saleAt!=null&&time.isBefore(b.saleAt)))total=Math.addExact(total,b.saleAmount);
         return total;
     }
     static Long bankAt(BankLedger.Product p,LocalDateTime time){

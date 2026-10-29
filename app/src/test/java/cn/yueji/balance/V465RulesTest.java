@@ -59,7 +59,7 @@ public class V465RulesTest {
         assertEquals(1,onlyFund.count);assertEquals(1,onlyBank.count);assertEquals(2,all.count);
         assertEquals(onlyFund.value+onlyBank.value,all.value);assertEquals(onlyFund.cost+onlyBank.cost,all.cost);
         assertEquals(onlyFund.current+24,all.current);assertEquals(onlyFund.previous-5,all.previous);
-        assertEquals(500,onlyBank.current);assertEquals(200,onlyBank.previous);assertEquals(1,onlyBank.selected.banks.size());assertTrue(onlyBank.selected.funds.isEmpty());
+        assertEquals(19,onlyBank.current);assertEquals(200,onlyBank.previous);assertEquals(1,onlyBank.selected.banks.size());assertTrue(onlyBank.selected.funds.isEmpty());
     }
     @Test public void missingBankDaysContributeZeroWithoutDisablingKnownFundTotals(){
         Ledger.Data data=new Ledger.Data();BankLedger.Product product=bank(data);product.observations.get(0).weekly=700L;

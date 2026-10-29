@@ -22,8 +22,8 @@ public final class FundEngine {
         }
         f.shares=units(f,now().toLocalDate());f.cost=holdingCost(f,now().toLocalDate());
     }
-    public static boolean active(Ledger.FundBuy b,LocalDate date){return !date.isBefore(b.at.toLocalDate())&&(b.saleDate==null||date.isBefore(b.saleDate));}
-    public static boolean held(Ledger.Fund f,LocalDate date){if(f.buys.isEmpty())return f.shares.signum()>0;for(Ledger.FundBuy b:f.buys)if(active(b,date))return true;return false;}
+    public static boolean active(Ledger.FundBuy b,LocalDate date){return !date.isBefore(b.at.toLocalDate())&&FundSettlement.positionReached(b,date)&&(b.saleDate==null||date.isBefore(b.saleDate));}
+    public static boolean held(Ledger.Fund f,LocalDate date){if(f.buys.isEmpty())return f.shares.signum()>0;for(Ledger.FundBuy b:f.buys)if(active(b,date)||b.saleOrderId>0&&b.saleDate!=null&&!date.isBefore(b.saleDate)&&!FundSettlement.releaseReached(b,date))return true;return false;}
     public static BigDecimal units(Ledger.Fund f,LocalDate date){
         if(f.buys.isEmpty())return f.shares;
         BigDecimal units=BigDecimal.ZERO;for(Ledger.FundBuy b:f.buys)if(active(b,date)&&b.confirmDate!=null&&!date.isBefore(b.confirmDate))units=units.add(unitsAt(f,b,date));return units;
@@ -38,14 +38,15 @@ public final class FundEngine {
         for(Map.Entry<LocalDate,BigDecimal> payout:f.dividends.subMap(b.confirmDate,true,date,true).entrySet())value=Math.addExact(value,cents(unitsAt(f,b,payout.getKey()).multiply(payout.getValue())));
         return value;
     }
-    public static long holdingCost(Ledger.Fund f,LocalDate date){if(f.buys.isEmpty())return f.cost;long total=0;for(Ledger.FundBuy b:f.buys)if(active(b,date))total=Math.addExact(total,Math.max(0,b.amount-dividends(f,b,date)));return total;}
+    public static long holdingCost(Ledger.Fund f,LocalDate date){if(f.buys.isEmpty())return f.cost;long total=0;for(Ledger.FundBuy b:f.buys)if(active(b,date))total=Math.addExact(total,Math.max(0,b.amount-dividends(f,b,date)));else if(b.saleOrderId>0&&b.saleDate!=null&&!date.isBefore(b.saleDate)&&!FundSettlement.releaseReached(b,date))total=Math.addExact(total,b.saleAmount);return total;}
     public static long value(Ledger.Fund f,LocalDate date){
         Map.Entry<LocalDate,BigDecimal> quote=f.prices.floorEntry(date);BigDecimal nav=quote==null?f.nav:quote.getValue();
         if(f.buys.isEmpty())return cents(f.shares.multiply(nav));
         long value=0;for(Ledger.FundBuy b:f.buys)if(active(b,date)){
             if(b.confirmDate==null||date.isBefore(b.confirmDate)||b.units.signum()==0)value=Math.addExact(value,b.amount);
             else value=Math.addExact(value,cents(unitsAt(f,b,date).multiply(nav)));
-        }return value;
+        }else if(b.saleOrderId>0&&b.saleDate!=null&&!date.isBefore(b.saleDate)&&!FundSettlement.releaseReached(b,date))value=Math.addExact(value,b.saleAmount);
+        return value;
     }
     private static Long profitAt(Ledger.Fund f,Ledger.FundBuy b,LocalDate date){
         if(b.confirmDate==null||date.isBefore(b.confirmDate))return 0L;
@@ -65,6 +66,7 @@ public final class FundEngine {
         if(f.buys.isEmpty())return value(f,date)-f.cost;
         long total=0;for(Ledger.FundBuy b:f.buys){
             if(date.isBefore(b.at.toLocalDate()))continue;
+            if(!FundSettlement.positionReached(b,date))continue;
             if(b.saleDate!=null&&!date.isBefore(b.saleDate)){total=Math.addExact(total,b.saleAmount-b.amount+dividends(f,b,b.saleDate));continue;}
             Long profit=profitAt(f,b,date);if(profit!=null)total=Math.addExact(total,profit+dividends(f,b,date));
         }return total;

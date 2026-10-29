@@ -71,6 +71,7 @@ final class MarketRefresh {
                         synchronized(LedgerStore.class){if(LedgerStore.epoch()!=epoch)break;Ledger.Data current=store.load();apply(current,quote,calendar);store.save(current);}
                     }catch(Exception e){if(failure==null)failure=NetworkIo.message(e);if(NetworkIo.connectivity(e))break;}
                 }
+                InvestmentProcessing.run(context);
                 if(automatic)FundNotifications.publish(context,store.load());
                 return failure;
             }finally{store.close();}

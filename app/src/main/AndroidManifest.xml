@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.USE_FINGERPRINT" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application android:name=".YuejiApplication" android:theme="@style/AppTheme" android:label="Yueji"
-        android:icon="@mipmap/icon_petals" android:roundIcon="@mipmap/icon_petals"
+        android:icon="@mipmap/icon_yueji_two_petals" android:roundIcon="@mipmap/icon_yueji_two_petals"
         android:allowBackup="false" android:supportsRtl="true">
         <activity android:name=".UpdateLaunchActivity" android:exported="true" android:launchMode="singleTask">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.INFO"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
@@ -17,7 +17,7 @@
         <provider android:name=".UpdateApkProvider" android:authorities="cn.yueji.balance.updates" android:exported="false" android:grantUriPermissions="true" />
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:windowSoftInputMode="adjustResize">
         </activity>
-        <activity-alias android:name=".IconBloom" android:targetActivity=".UpdateLaunchActivity" android:enabled="true" android:exported="true" android:icon="@mipmap/icon_petals" android:roundIcon="@mipmap/icon_petals" android:label="Yueji">
+        <activity-alias android:name=".IconBloom" android:targetActivity=".UpdateLaunchActivity" android:enabled="true" android:exported="true" android:icon="@mipmap/icon_yueji_two_petals" android:roundIcon="@mipmap/icon_yueji_two_petals" android:label="Yueji">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
         </activity-alias>
         <activity-alias android:name=".IconClassic" android:targetActivity=".UpdateLaunchActivity" android:enabled="false" android:exported="true" android:icon="@mipmap/icon_classic" android:label="Yueji">

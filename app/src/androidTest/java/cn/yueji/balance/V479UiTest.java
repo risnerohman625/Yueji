@@ -1,0 +1,32 @@
+package cn.yueji.balance;
+
+import android.app.*;
+import android.graphics.*;
+import android.graphics.drawable.*;
+import android.view.*;
+import android.widget.*;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.uiautomator.*;
+import org.junit.*;
+import org.junit.runner.RunWith;
+import java.time.*;
+import static org.junit.Assert.*;
+
+@RunWith(AndroidJUnit4.class)
+public class V479UiTest {
+    final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;final V43UiTest h=old.h;
+    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",28).commit();}
+    @After public void after()throws Exception{t.context.getSystemService(NotificationManager.class).cancel(23);old.after();}
+    void segment(Segmented tabs,int index){t.ui(()->{float x=(index+.5f)*tabs.getWidth()/tabs.count(),y=tabs.getHeight()/2f;long at=android.os.SystemClock.uptimeMillis();tabs.onTouchEvent(MotionEvent.obtain(at,at,MotionEvent.ACTION_DOWN,x,y,0));tabs.onTouchEvent(MotionEvent.obtain(at,at+10,MotionEvent.ACTION_UP,x,y,0));});}
+    @Test public void purchaseIsFullPageAndDailyWeeklyControlsSwitch(){t.start(old.sample());t.ui(()->t.app.fundPurchaseScreen.open(null,"","",false));assertEquals("fund_purchase",t.app.page);assertNotNull(t.findText(t.app.body,"添加基金买入"));assertTrue(t.app.body.getParent() instanceof ScrollView);segment(t.app.fundPurchaseScreen.modes,1);assertNotNull(t.findText(t.app.body,"每期金额"));assertNotNull(t.findText(t.app.body,"首期购买时间（北京时间）"));segment(t.app.fundPurchaseScreen.cycles,2);assertNotNull(t.findText(t.app.body,"执行日"));assertNull(t.findText(t.app.body,"首期购买时间（北京时间）"));old.shot("v479-buy-plan.png");}
+    @Test public void fundDetailHasMergedBuyAndSaleDestinationTabs(){t.start(old.sample());t.ui(()->{t.app.fundFocus=t.app.data.funds.get(0).id;t.app.go("fund_detail");assertNotNull(t.findText(t.app.body,"追加买入 / 定投"));assertNull(t.findText(t.app.body,"追加买入"));assertNull(t.findText(t.app.body,"定投"));h.desc(t.app.body,"基金卖出").performClick();});assertEquals("fund_sale",t.app.page);assertNotNull(t.findText(t.app.body,"卖出到账账户"));Segmented tabs=h.first(t.app.body,Segmented.class);segment(tabs,1);assertNotNull(t.findText(t.app.body,"转换目标基金代码"));old.shot("v479-conversion-form.png");}
+    @Test public void bankCancelDoesNotClearUnknownAndWeekUsesSavedDays(){Ledger.Data d=old.sample();BankLedger.Draft opening=new BankLedger.Draft();opening.name="理财日历";opening.balance=100000L;opening.at=FundEngine.now().minusDays(10);BankLedger.Product p=BankLedger.apply(d,0,opening,false,null);t.start(d);LocalDate day=FundEngine.now().toLocalDate().minusDays(1);t.ui(()->{t.app.bankScreens.focus=p.id;t.app.go("bank_detail");assertNull(t.findText(t.app.body,"录入收益数据"));h.desc(t.app.body,"银行收益日期"+day).performLongClick();});UiObject2 amount=t.device.wait(Until.findObject(By.desc("当日收益（元，可为负数）")),3000);amount.setText("1.23");old.tap("取消");assertNull(BankLedger.daily(BankLedger.find(t.store.load(),p.id),day));t.ui(()->h.desc(t.app.body,"银行收益日期"+day).performLongClick());t.device.wait(Until.findObject(By.desc("当日收益（元，可为负数）")),3000).setText("1.23");old.tap("确认");assertEquals(Long.valueOf(123),BankLedger.week(BankLedger.find(t.store.load(),p.id),BankLedger.monday(day)));assertNull(BankLedger.daily(BankLedger.find(t.store.load(),p.id),day.minusDays(1)));old.shot("v479-bank-weekly.png");}
+    @Test public void dailyPageActuallyBackfillsAndDoesNotChangeOnReopen(){Ledger.Data data=old.sample();data.funds.clear();t.start(data);t.ui(()->{t.app.fundPurchaseScreen.open(null,"测试自动定投","006431",true);t.app.fundPurchaseScreen.frequency=0;t.app.fundPurchaseScreen.renderFields(null);t.app.fundPurchaseScreen.amount.setText("10");t.app.fundPurchaseScreen.fee.setText("0");t.app.fundPurchaseScreen.periods.setText("2");t.app.fundPurchaseScreen.first.at=LocalDateTime.of(2026,10,26,10,13);t.app.fundPurchaseScreen.first.update();t.app.fundPurchaseScreen.fetcher=code->{FundClient.Quote q=new FundClient.Quote();q.code=code;q.name="测试自动定投";q.nav=java.math.BigDecimal.ONE;q.previous=q.nav;q.date="2026-10-29";q.complete=true;for(int day=26;day<=29;day++)q.history.put(LocalDate.of(2026,10,day),q.nav);return q;};t.findText(t.app.body,"保存定投并补齐已到期记录").performClick();});assertTrue(t.device.wait(Until.gone(By.text("添加基金买入")),10000));Ledger.Data saved=t.store.load();assertEquals(2,saved.funds.get(0).buys.size());assertFalse(saved.funds.get(0).plan.enabled);assertEquals(2,saved.funds.get(0).plan.records.size());String before=t.store.exportJson();InvestmentProcessing.run(t.context);assertEquals(before,t.store.exportJson());}
+    @Test public void appendEarlierThanLatestShowsErrorWithoutWriting(){t.start(old.sample());String before=t.store.exportJson();t.ui(()->{t.app.fundPurchaseScreen.open(t.app.data.funds.get(0),"","",false);t.app.fundPurchaseScreen.amount.setText("10");t.app.fundPurchaseScreen.fee.setText("0");t.app.fundPurchaseScreen.first.at=LocalDateTime.of(2026,9,1,10,0);t.findText(t.app.body,"获取净值并保存").performClick();});assertNotNull(t.device.wait(Until.findObject(By.textContains("不能早于最新买入")),2000));assertEquals(before,t.store.exportJson());}
+    @Test public void systemNotificationContainsActualTwoPetalBitmapAndFreshAppIcon()throws Exception{
+        t.start(old.sample());t.ui(()->{t.app.getPreferences(0).edit().putInt("appIcon",2).commit();t.app.testNotification();});
+        Notification notice=null;for(android.service.notification.StatusBarNotification n:t.context.getSystemService(NotificationManager.class).getActiveNotifications())if(n.getId()==23)notice=n.getNotification();assertNotNull(notice);
+        assertEquals(Icon.TYPE_BITMAP,notice.getSmallIcon().getType());Drawable actual=notice.getSmallIcon().loadDrawable(t.context);Bitmap drawn=Bitmap.createBitmap(96,96,Bitmap.Config.ARGB_8888),expected=Bitmap.createBitmap(96,96,Bitmap.Config.ARGB_8888);actual.setBounds(0,0,96,96);actual.draw(new Canvas(drawn));Drawable two=t.context.getDrawable(R.drawable.ic_stat_two_petals);two.setBounds(0,0,96,96);two.draw(new Canvas(expected));assertTrue(drawn.sameAs(expected));assertEquals(R.mipmap.icon_yueji_two_petals,t.context.getPackageManager().getApplicationInfo(t.context.getPackageName(),0).icon);
+        t.device.openNotification();assertNotNull(t.device.wait(Until.findObject(By.textContains("这不是实际基金收益")),5000));android.os.SystemClock.sleep(1500);old.shot("v479-system-notification-two-petals.png");t.device.pressBack();drawn.recycle();expected.recycle();
+    }
+}

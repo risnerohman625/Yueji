@@ -97,7 +97,7 @@ final class FundScreens {
             compactMetric(r,"昨日收益",fundYesterday==null?"待更新":m.signed(fundYesterday),fundYesterday==null?MainActivity.MUTED:color(fundYesterday));
             compactMetric(r,"持有收益",FundEngine.known(f,today)?m.signed(heldP):"待数据",color(heldP));c.addView(r);
             m.gap(c,3);LinearLayout footer=m.row();
-            String share=holding&&heldValue>0?String.format(Locale.CHINA,"持仓占比 %.1f%%",own*100.0/heldValue):"已卖出";
+            String share=holding&&heldValue>0?String.format(Locale.CHINA,"持仓占比 %.1f%%",own*100.0/heldValue):f.buys.isEmpty()&&f.plan.automatic?"定投待执行":f.pendingOrder?"转换待确认":"已卖出";
             TextView stamp=holdingStamp(share,"更新 "+(f.updatedAt.isEmpty()?(f.navDate.isEmpty()?"待更新":f.navDate):f.updatedAt.replace('T',' ').substring(0,Math.min(16,f.updatedAt.length()))));
             m.weight(footer,stamp);if(!f.tag.isEmpty()){TextView label=m.ui.tag(f.tag,Ui.ACCENT_DEEP,Ui.ACCENT_SOFT);label.setMaxWidth(m.dp(100));label.setMaxLines(2);LinearLayout.LayoutParams tp=new LinearLayout.LayoutParams(-2,-2);tp.leftMargin=m.dp(6);footer.addView(label,tp);}c.addView(footer);
             c.setOnClickListener(v->{m.fundFocus=f.id;m.go("fund_detail");});
@@ -113,8 +113,8 @@ final class FundScreens {
         if(m.refreshing&&pull!=null)pull.setRefreshing(true);
     }
     int sortOrder(){return Math.max(0,Math.min(2,m.getPreferences(0).getInt("fundSort",2)));}
-    void addChoice(){AppIcons.dialog(m).setTitle("添加基金").setItems(new String[]{"手动输入","添加银行理财"},(d,w)->{if(w==0)buy(null,null);else m.bankScreens.start(0);}).setNegativeButton("取消",null).show();}
-    void buyFromWatch(String name,String code){buyInternal(null,null,0,0,0,false,name,code);}
+    void addChoice(){AppIcons.dialog(m).setTitle("添加基金").setItems(new String[]{"手动输入","添加银行理财"},(d,w)->{if(w==0)m.fundPurchaseScreen.open(null,"","",false);else m.bankScreens.start(0);}).setNegativeButton("取消",null).show();}
+    void buyFromWatch(String name,String code){m.fundPurchaseScreen.open(null,name,code,false);}
     TextView sortButton(){
         String[] names={"购入时间","持有金额","持有收益"};int selected=Math.max(0,Math.min(2,sortOrder()));
         TextView button=m.ui.link("⇅ "+names[selected],()->{m.getPreferences(0).edit().putInt("fundSort",FundRules.nextSort(selected)).apply();m.rerenderKeepingScroll();});button.setContentDescription("基金排序");button.setTextSize(12);return button;
@@ -155,6 +155,7 @@ final class FundScreens {
         try{
             Ledger.Data candidate=m.copy();Ledger.Fund target=null;for(Ledger.Fund f:candidate.funds)if(f.id==fund.id)target=f;
             if(target==null)throw new IllegalArgumentException("基金不存在");
+            for(Ledger.FundOrder order:candidate.fundOrders)if((order.sourceId==fund.id||order.targetCode.equals(fund.code))&&!"已完成".equals(order.status))throw new IllegalArgumentException("基金存在待处理卖出/转换，请先完成或取消");
             FundEngine.remove(target,FundEngine.now());m.commit(candidate);m.render();
         }catch(Exception e){m.error(e);}
     }
@@ -177,6 +178,7 @@ final class FundScreens {
             Ledger.Data candidate=m.copy();Ledger.Fund target=null;for(Ledger.Fund f:candidate.funds)if(f.id==fund.id)target=f;
             if(target==null)throw new IllegalArgumentException("基金不存在");
             FundRules.requirePurge(target);
+            for(Ledger.FundOrder order:candidate.fundOrders)if(order.sourceId==fund.id||order.targetCode.equals(fund.code))throw new IllegalArgumentException("基金包含关联卖出/转换历史，不能单独永久删除");
             Set<Long> buyIds=new HashSet<>();for(Ledger.FundBuy b:target.buys)buyIds.add(b.id);
             candidate.funds.remove(target);
             candidate.entries.removeIf(e->{for(Long id:buyIds)if(e.note.equals("自动关联买入 "+id)||e.note.equals("自动关联卖出 "+id))return true;return false;});
@@ -272,9 +274,9 @@ final class FundScreens {
             metricRow(info,buyTotal,new Cell("持有份额",FundEngine.units(focus,today).toPlainString(),MainActivity.INK),new Cell("持仓占比",!focus.hidden&&FundEngine.held(focus,today)&&heldAll>0?String.format(Locale.CHINA,"%.1f%%",own*100.0/heldAll):"—",Ui.ACCENT_DEEP));
             metricRow(info,todayCell,yesterdayCell,new Cell("持有天数",FundEngine.heldDays(focus,today)+"天",MainActivity.INK));
             metricRow(info,new Cell("基金代码",focus.code,MainActivity.INK),new Cell("最高日收益",high,highColor),new Cell("最低日收益",low,lowColor));
-            m.gap(info,4);LinearLayout actions=m.row();m.weight(actions,m.action("追加买入",()->buy(focus,null)));
+            m.gap(info,4);LinearLayout actions=m.row();m.weight(actions,m.action("追加买入 / 定投",()->m.fundPurchaseScreen.open(focus,focus.name,focus.code,false)));
             LinearLayout.LayoutParams gap=new LinearLayout.LayoutParams(0,-2,1);gap.leftMargin=m.dp(6);
-            TextView plan=m.action("定投",()->configurePlan(focus));plan.setContentDescription("定投配置");actions.addView(plan,gap);
+            TextView sale=m.action("卖出",()->m.fundSaleScreen.open(focus));sale.setContentDescription("基金卖出");actions.addView(sale,gap);
             TextView trades=m.action("交易记录",()->m.go("fund_trades"));trades.setContentDescription("交易记录");actions.addView(trades,gap);info.addView(actions);
             focus.profile.inferLock(focus.name);
             if(focus.profile.lockCount>0){LocalDate last=null;for(Ledger.FundBuy b:focus.buys)if(b.saleDate==null){LocalDate unlock=focus.profile.unlock(b.confirmDate);if(unlock!=null&&(last==null||unlock.isAfter(last)))last=unlock;}m.gap(info,4);info.addView(m.text("锁定期："+focus.profile.lockCount+focus.profile.lockUnit+" · 最晚锁定截止 "+(last==null?"待确认份额":last)+"（每笔单独起算）",11,Ui.AMBER,true));}
@@ -411,7 +413,7 @@ final class FundScreens {
                 edit=m.ui.link("编辑",()->buy(fund,b));edit.setTypeface(Ui.BOLD);edit.setPadding(m.dp(8),0,0,0);edit.setMinHeight(m.dp(36));edit.setGravity(Gravity.CENTER);
                 edit.setContentDescription("编辑交易"+b.id+(t.sell?"卖出":"买入"));
             }
-            LinearLayout head=m.row();TextView tag=m.text(t.sell?"卖出":"买入",12,Color.WHITE,true);tag.setPadding(m.dp(8),m.dp(2),m.dp(8),m.dp(2));tag.setBackground(m.shape(t.sell?MainActivity.EXP:MainActivity.RED,8));head.addView(tag);
+            LinearLayout head=m.row();TextView tag=m.text(t.sell?(b.saleTag.isEmpty()?"卖出":b.saleTag):(b.transactionTag.isEmpty()?"买入":b.transactionTag),12,Color.WHITE,true);tag.setPadding(m.dp(8),m.dp(2),m.dp(8),m.dp(2));tag.setBackground(m.shape(t.sell?MainActivity.EXP:MainActivity.RED,8));head.addView(tag);
             TextView amount=m.fit(m.text("¥ "+m.money(t.sell?b.saleAmount:b.amount),16,MainActivity.INK,true),16,8);amount.setTag("bounded-number");LinearLayout.LayoutParams moneyParams=new LinearLayout.LayoutParams(0,m.dp(28),1);moneyParams.leftMargin=m.dp(18);head.addView(amount,moneyParams);c.addView(head);m.gap(c,8);
             if(fund.profile.lockCount==0)fund.profile.inferLock(fund.name);
             if(fund.profile.lockCount>0&&!t.sell){LocalDate unlock=fund.profile.unlock(b.confirmDate);c.addView(m.text("本笔锁定截止："+(unlock==null?"待份额确认":unlock.toString())+"（以平台实际开放日为准）",11,Ui.AMBER,true));}
@@ -504,42 +506,14 @@ final class FundScreens {
     }
     interface BuyChange{void apply(Ledger.FundBuy buy);}
     static LocalDate nextPlanDate(Ledger.RecurringPlan plan,LocalDate after){return RecurringInvestments.next(plan,after);}
-    void configurePlan(Ledger.Fund fund){
-        if(fund==null||fund.fundType.contains("银行")){m.toast("银行理财不支持定投");return;}
-        LinearLayout form=m.col();form.setPadding(m.dp(16),0,m.dp(16),m.dp(14));
-        EditText amount=m.field(form,"每期金额",fund.plan.enabled?Ledger.decimal(fund.plan.amount):"",true);
-        EditText fee=m.field(form,"每期手续费",fund.plan.enabled?Ledger.decimal(fund.plan.fee):"0",true);
-        Spinner frequency=m.choices(form,"周期",new String[]{"每月","每周","每日"},fund.plan.frequency.equals("每日")?2:fund.plan.frequency.equals("每周")?1:0);
-        EditText day=m.field(form,"执行日（每月 1-28；每周填写 1-7）",fund.plan.enabled?""+fund.plan.dayOfMonth:"1",true);
-        frequency.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,View v,int position,long id){day.setEnabled(position!=2);day.setHint(position==2?"每日自动跳过周末及休市日":"按周期填写执行日");}public void onNothingSelected(AdapterView<?> p){}});
-        EditText periods=m.field(form,"计划总期数（0为不限）",String.valueOf(fund.plan.totalPeriods),true);
-        List<Ledger.Account> accounts=m.data.activeAccounts();String[] names=new String[accounts.size()+1];names[0]="请选择资金账户";
-        for(int i=0;i<accounts.size();i++)names[i+1]=accounts.get(i).name+" · "+accounts.get(i).type;
-        int selected=0;for(int i=0;i<accounts.size();i++)if(accounts.get(i).id==fund.plan.accountId)selected=i+1;
-        Spinner account=m.choices(form,"定投资金账户（必选）",names,selected);
-        EditText start=m.field(form,"开始日期 yyyy-MM-dd",fund.plan.startDate.isEmpty()?FundEngine.now().toLocalDate().toString():fund.plan.startDate,false);
-        form.addView(m.text("此处只管理计划和实际成交记录，不会向银行或基金平台自动扣款。到期后请在平台完成买入，再点登记本期。每日计划仅交易工作日，跳过周末及已知休市日；达到总期数后自动结束。休市日历未覆盖的年份请自行核对。",11,Ui.MUTED,false));
-        if(!fund.plan.enabled&&!fund.plan.records.isEmpty())form.addView(m.action("查看历史定投记录",()->planRecords(fund)));
-        if(!fund.plan.nextDate.isEmpty())form.addView(m.text("下一计划日期："+fund.plan.nextDate+"（需在平台实际买入后登记）",12,Ui.ACCENT_DEEP,true));
-        TextView record=m.text(fund.plan.records.isEmpty()?"尚无定投记录":"已登记 "+RecurringInvestments.completed(fund.plan)+" / "+(fund.plan.totalPeriods==0?"不限":fund.plan.totalPeriods)+" 期，可在此修改配置。",11,MainActivity.MUTED,false);form.addView(record);
-        final AlertDialog[] planDialog={null};
-        if(fund.plan.enabled&&!RecurringInvestments.complete(fund.plan)){form.addView(m.action("登记本期实际买入",()->{if(planDialog[0]!=null)planDialog[0].dismiss();buy(fund,null,fund.plan.amount,fund.plan.fee,fund.plan.accountId,true);}));form.addView(m.action("查看定投记录",()->planRecords(fund)));form.addView(m.action("暂停定投",()->{Ledger.Data c=m.copy();for(Ledger.Fund f:c.funds)if(f.id==fund.id)f.plan.enabled=false;m.commit(c);if(planDialog[0]!=null)planDialog[0].dismiss();m.render();m.toast("定投已暂停，历史记录保留");}));}
-        AlertDialog d=AppIcons.dialog(m).setTitle(fund.plan.enabled?"查看 / 修改定投":"开启定投").setView(m.wrap(form)).setNegativeButton("取消",null).setPositiveButton("保存",null).create();planDialog[0]=d;d.show();
-        d.getButton(-1).setOnClickListener(v->{try{
-            long value=Ledger.parseMoney(amount.getText().toString(),true),charge=Ledger.parseMoney(fee.getText().toString(),false);int interval=frequency.getSelectedItemPosition()==2?1:Integer.parseInt(day.getText().toString().trim());int count=Integer.parseInt(periods.getText().toString().trim());if(count<0||count>10000)throw new IllegalArgumentException("计划总期数应为0至10000");
-            if(account.getSelectedItemPosition()==0)throw new IllegalArgumentException("请选择定投资金账户");if(interval<1||interval>(frequency.getSelectedItemPosition()==0?28:7))throw new IllegalArgumentException("执行日范围无效");
-            LocalDate begin=LocalDate.parse(start.getText().toString().trim());if(begin.getYear()<2000||begin.getYear()>2100)throw new IllegalArgumentException("开始日期应在2000至2100年");
-            Ledger.Data candidate=m.copy();Ledger.Fund target=null;for(Ledger.Fund f:candidate.funds)if(f.id==fund.id)target=f;if(target==null)throw new IllegalArgumentException("基金不存在");
-            target.plan.totalPeriods=count;target.plan.enabled=!RecurringInvestments.complete(target.plan);target.plan.amount=value;target.plan.fee=charge;target.plan.dayOfMonth=interval;target.plan.frequency=frequency.getSelectedItem().toString();target.plan.accountId=accounts.get(account.getSelectedItemPosition()-1).id;target.plan.startDate=begin.toString();
-            LocalDate anchor=begin;for(Ledger.RecurringRecord r:target.plan.records)if(r.status.equals("已登记")&&!r.date.isBefore(anchor))anchor=r.date.plusDays(1);target.plan.nextDate=target.plan.enabled?RecurringInvestments.first(target.plan,anchor,calendar()).toString():"";m.commit(candidate);d.dismiss();m.render();
-        }catch(Exception e){m.error(e);}});
-    }
+    void configurePlan(Ledger.Fund fund){m.fundPurchaseScreen.open(fund,fund==null?"":fund.name,fund==null?"":fund.code,true);}
     void planRecords(Ledger.Fund fund){
         LinearLayout list=m.col();for(Ledger.RecurringRecord r:fund.plan.records){list.addView(m.text(r.date+" · ¥ "+m.money(r.amount)+" · "+m.data.accountName(r.accountId)+" · "+r.status,12,Ui.INK,false));m.gap(list,10);}if(fund.plan.records.isEmpty())list.addView(m.text("尚无已登记定投",12,Ui.MUTED,false));AppIcons.dialog(m).setTitle("定投记录 · "+fund.name).setView(m.wrap(list)).setPositiveButton("关闭",null).show();
     }
     boolean mutateBuy(Ledger.Fund fund,Ledger.FundBuy buy,boolean remove,BuyChange change){
         try{Ledger.Data candidate=m.copy();Ledger.Fund target=null;for(Ledger.Fund f:candidate.funds)if(f.id==fund.id)target=f;if(target==null)throw new IllegalArgumentException("基金不存在");
             if(target.removed())throw new IllegalArgumentException("基金已从首页删除，恢复后才能修改交易");
+            for(Ledger.FundOrder order:candidate.fundOrders)if(order.buyIds.contains(buy.id)||order.targetBuyId==buy.id)throw new IllegalArgumentException("该交易关联转换/卖出计划，不能单独修改或删除");
             if(remove){FundRules.requireRemoveBuy(target,buy.id);target.buys.removeIf(x->x.id==buy.id);candidate.entries.removeIf(e->e.note.equals("自动关联买入 "+buy.id)||e.note.equals("自动关联卖出 "+buy.id));}
             else{for(Ledger.FundBuy b:target.buys)if(b.id==buy.id)change.apply(b);}
             FundEngine.resolve(target,calendar());
@@ -551,6 +525,7 @@ final class FundScreens {
         AlertDialog d=AppIcons.dialog(m).setTitle("校正确认时间").setView(m.wrap(f)).setNegativeButton("取消",null).setPositiveButton("保存",null).create();d.show();d.getButton(-1).setOnClickListener(v->{try{LocalDate t=LocalDate.parse(trade.getText().toString()),c=LocalDate.parse(confirm.getText().toString());if(!c.isAfter(t))throw new IllegalArgumentException("确认日应晚于交易日");if(mutateBuy(fund,buy,false,b->{b.overrideDates=true;b.tradeDate=t;b.confirmDate=c;}))d.dismiss();}catch(Exception e){m.error(e);}});
     }
     void sell(Ledger.Fund fund,Ledger.FundBuy buy){
+        for(Ledger.FundOrder order:m.data.fundOrders)if(order.buyIds.contains(buy.id)||order.targetBuyId==buy.id){m.toast("该交易关联卖出/转换计划，请到基金卖出页面查看");return;}
         LinearLayout f=m.col();f.setPadding(m.dp(16),0,m.dp(16),m.dp(14));EditText amount=m.field(f,"本批次卖出净到账金额（已扣费用）",buy.saleDate==null?"":Ledger.decimal(buy.saleAmount),true);
         MainActivity.DateControl date=m.new DateControl(f,"卖出确认日",buy.saleDate==null?FundEngine.now():buy.saleDate.atTime(12,0),false);
         Ledger.Entry linked=null;for(Ledger.Entry e:m.data.entries)if(e.note.equals("自动关联卖出 "+buy.id))linked=e;

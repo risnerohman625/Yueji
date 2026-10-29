@@ -24,8 +24,10 @@ final class FundTransactions {
         if(buyId!=0){
             if(source!=null)for(Ledger.FundBuy b:source.buys)if(b.id==buyId)original=b;
             if(original==null)throw new IllegalArgumentException("原买入记录已删除，不能重新创建");
+            for(Ledger.FundOrder order:data.fundOrders)if(order.buyIds.contains(buyId)||order.targetBuyId==buyId)throw new IllegalArgumentException("该交易关联卖出/转换计划，请先处理计划，不能单独修改");
         }
         if(target!=null&&target.removed())throw new IllegalArgumentException("目标基金已从首页删除，请先恢复");
+        for(Ledger.FundOrder order:data.fundOrders)if(target!=null&&(order.sourceId==target.id||order.targetCode.equals(target.code))&&!"已完成".equals(order.status))throw new IllegalArgumentException("基金存在待处理卖出/转换，请先处理后再买入");
         if(target!=null&&target.buys.isEmpty()&&target.shares.signum()>0)throw new IllegalArgumentException("目标基金是旧版份额持仓，不能混入买入批次");
         boolean codeChanged=source!=null&&!source.code.equals(code);
         if(codeChanged&&quote==null)throw new IllegalArgumentException("修改基金代码需要先取得新代码的历史净值，请联网后重试");
@@ -67,6 +69,7 @@ final class FundTransactions {
             }
         }
         target.buys.add(replacement);
+        target.pendingOrder=false;
         if(quote!=null){
             target.name=quote.name;target.nav=quote.nav;target.previous=quote.previous;target.navDate=quote.date;
             target.prices.putAll(quote.history);target.navReturns.putAll(quote.returns);target.dividends.putAll(quote.dividends);target.splits.putAll(quote.splits);

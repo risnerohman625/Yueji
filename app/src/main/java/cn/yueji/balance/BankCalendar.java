@@ -42,6 +42,7 @@ final class BankCalendar {
         LinearLayout cell=m.col();cell.setGravity(Gravity.CENTER);cell.setPadding(1,m.dp(2),1,m.dp(2));cell.setBackground(Ui.round(today?m.fundScreens.color(amount):amount==null?Ui.ACCENT_TINT:amount>0?Ui.RED_SOFT:amount<0?Ui.GREEN_SOFT:Ui.ACCENT_TINT,m.dp(8)));
         TextView date=m.text(title,11,today?android.graphics.Color.WHITE:Ui.INK,true);date.setGravity(Gravity.CENTER);cell.addView(date);
         TextView value=m.fit(m.text(amount==null?(start.isAfter(LocalDate.now())?"":"待更新"):m.signed(amount),11,today?android.graphics.Color.WHITE:amount==null?Ui.MUTED:m.fundScreens.color(amount),true),11,6);value.setGravity(Gravity.CENTER);cell.addView(value,new LinearLayout.LayoutParams(-1,m.dp(22)));
+        if(start.equals(end)){cell.setContentDescription("银行收益日期"+start);cell.setOnLongClickListener(v->{b.editDay(start);return true;});}
         cell.setOnClickListener(v->AppIcons.dialog(m).setTitle(start.equals(end)?start.toString():start+" — "+end).setMessage(amount==null?"待更新，未导入该日期的真实收益":m.signed(amount)+" 元\n来自已核对的收益明细").setPositiveButton("知道了",null).show());return cell;
     }
 }

@@ -55,6 +55,23 @@ final class BankAccounting {
         for(int segment=0;segment<=BankLedger.segment(p);segment++)for(BankLedger.Event e:flows(p,segment,FundEngine.now()))if(buy(e))sum=Math.addExact(sum,e.amount);
         return sum;
     }
+    static void setDaily(Ledger.Data data,BankLedger.Product p,LocalDate day,long value){
+        if(p==null||p.removed()||day.isAfter(FundEngine.now().toLocalDate())||day.getYear()<2000||Math.abs(value)>Ledger.MAX_MONEY)throw new IllegalArgumentException("收益日期或金额无效");
+        int segment=BankLedger.segment(p);BankLedger.Observation anchor=first(p,segment);
+        if(day.isBefore(anchor.at.toLocalDate()))throw new IllegalArgumentException("日期早于当前产品初始金额，请先核对初始日期");
+        Long previous=null;for(BankLedger.Observation o:p.observations)if(o.segment==segment&&o.daily.containsKey(day))previous=o.daily.get(day);
+        long delta=Math.subtractExact(value,previous==null?0:previous);
+        if(!p.bases.containsKey(segment))p.bases.put(segment,basis(p,segment));
+        boolean cumulative=false;for(BankLedger.Observation o:p.observations)if(o.segment==segment){
+            if(o.daily.containsKey(day))o.daily.put(day,value);
+            if(o.cumulative!=null&&!date(o).isBefore(day)){o.cumulative=Math.addExact(o.cumulative,delta);cumulative=true;}
+            if(o.weekStart.equals(BankLedger.monday(day))&&o.weekly!=null)o.weekly=Math.addExact(o.weekly,delta);
+            if(o.weeks.containsKey(BankLedger.monday(day)))o.weeks.put(BankLedger.monday(day),Math.addExact(o.weeks.get(BankLedger.monday(day)),delta));
+        }
+        BankLedger.Observation edit=new BankLedger.Observation();edit.id=data.nextId();edit.at=FundEngine.now();edit.reportDate=day;edit.weekStart=BankLedger.monday(day);edit.name=p.name;edit.segment=segment;edit.daily.put(day,value);p.observations.add(edit);
+        if(!cumulative){Long running=cumulativeAt(p,segment,day);if(running==null){long sum=0;Map<LocalDate,Long> unique=new TreeMap<>();for(BankLedger.Observation o:p.observations)if(o.segment==segment)unique.putAll(o.daily);for(Map.Entry<LocalDate,Long> item:unique.entrySet())if(!item.getKey().isAfter(day))sum=Math.addExact(sum,item.getValue());edit.cumulative=sum;}else edit.cumulative=running;}
+        edit.balance=value(p,FundEngine.now());
+    }
     static void importIncome(Ledger.Data data,BankLedger.Product p,BankLedger.Draft income){
         if(p.removed())throw new IllegalArgumentException("请先恢复产品");
         if(income.cumulative==null||income.daily.isEmpty())throw new IllegalArgumentException("收益记录必须包含累计收益和带日期的每日收益");

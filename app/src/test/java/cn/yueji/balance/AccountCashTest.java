@@ -114,7 +114,7 @@ public class AccountCashTest {
     }
     @Test public void backupRoundTripRetainsCashOwnershipAndRemainsIdempotent()throws Exception{
         Ledger.Data d=data();Ledger.Entry e=entry(d,20,Ledger.REIMBURSE,50000,"2026-09-05T10:00",1);receipt(e,50000,"2026-10-22T10:00",2);
-        LedgerStore.validate(d);String original=LedgerStore.encode(d);assertEquals(13,new org.json.JSONObject(original).getInt("version"));
+        LedgerStore.validate(d);String original=LedgerStore.encode(d);assertEquals(14,new org.json.JSONObject(original).getInt("version"));
         Ledger.Data restored=LedgerStore.decode(original);LedgerStore.validate(restored);assertEquals(original,LedgerStore.encode(restored));assertTrue(restored.entries.get(0).cashLinked);assertTrue(restored.entries.get(0).receipts.get(0).cashLinked);
     }
     @Test public void missingAccountAndInsufficientBalanceAreRejected(){

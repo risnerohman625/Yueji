@@ -59,7 +59,7 @@ public final class Ledger {
   public final TreeMap<LocalDate,BigDecimal> prices=new TreeMap<>();
   public final TreeMap<LocalDate,BigDecimal> navReturns=new TreeMap<>();
   public final TreeMap<LocalDate,BigDecimal> dividends=new TreeMap<>(),splits=new TreeMap<>();
-  public String fundType="",updatedAt="";public boolean historyComplete;
+  public String fundType="",updatedAt="";public boolean historyComplete,pendingOrder;
   /** Optional recurring investment configuration for ordinary funds. */
   public final RecurringPlan plan=new RecurringPlan();public final FundProfile profile=new FundProfile();
   public long value(){return shares.multiply(nav).movePointRight(2).setScale(0,RoundingMode.HALF_UP).longValueExact();}
@@ -75,6 +75,10 @@ public final class Ledger {
   public long buyAccountId,saleAccountId;
   public boolean accountFlowManaged;
   public long recurringRecordId;
+  public long saleOrderId;
+  public String transactionTag="",saleTag="";
+  public LocalDateTime positionAt;
+  public boolean releasePending;
  }
  public static final class RecurringPlan {
   public boolean enabled;
@@ -82,12 +86,21 @@ public final class Ledger {
   public int dayOfMonth=1;
   public int totalPeriods;
   public String frequency="每月",startDate="",nextDate="";
+  public boolean automatic;
+  public String firstAt="",nextAt="",nextNominal="",error="";
   public final List<RecurringRecord> records=new ArrayList<>();
  }
  public static final class RecurringRecord {
   public long id,amount,accountId,buyId;
   public LocalDate date;
   public String status="待执行";
+ }
+ public static final class FundOrder {
+  public long id,sourceId,accountId,fee,targetBuyId,netAmount;
+  public String targetCode="",targetName="",status="待净值",error="";
+  public LocalDateTime at,receivedAt;
+  public LocalDate tradeDate,confirmDate;
+  public final Set<Long> buyIds=new LinkedHashSet<>();
  }
  public static final class WatchGroup {
   public long id;
@@ -119,6 +132,7 @@ public final class Ledger {
   public final List<HistoryMonth> history=new ArrayList<>();public final List<Fund> funds=new ArrayList<>();
   public final List<WatchGroup> watchGroups=new ArrayList<>();
   public final List<WatchFund> watchFunds=new ArrayList<>();
+  public final List<FundOrder> fundOrders=new ArrayList<>();
   public final Set<String> watchAllIncluded=new LinkedHashSet<>();
   public int watchRange=4,watchSort=0;public boolean watchDescending=true;
   public final Settings settings=new Settings();
@@ -137,7 +151,7 @@ public final class Ledger {
   public long balance(Account a){for(int i=snapshots.size()-1;i>=0;i--){Long v=snapshots.get(i).balances.get(a.id);if(v!=null)return v;}return a.opening;}
   public long total(){long v=0;for(Account a:accounts)if(a.deletedAt==null)v=Math.addExact(v,balance(a));return v;}
   public List<Account> activeAccounts(){List<Account> list=new ArrayList<>();for(Account a:accounts)if(a.deletedAt==null)list.add(a);return list;}
-  public long nextId(){long n=System.currentTimeMillis();for(DebtLedger.Loan loan:debts){n=Math.max(n,loan.id+1);for(DebtLedger.Payment p:loan.payments)n=Math.max(n,p.id+1);}for(ImportJournal.Batch b:imports)n=Math.max(n,b.id+1);for(Account a:accounts)n=Math.max(n,a.id+1);for(Snapshot s:snapshots)n=Math.max(n,s.id+1);for(Entry e:entries)n=Math.max(n,e.id+1);for(WatchGroup g:watchGroups)n=Math.max(n,g.id+1);for(Fund f:funds){n=Math.max(n,f.id+1);for(FundBuy b:f.buys)n=Math.max(n,b.id+1);for(RecurringRecord r:f.plan.records)n=Math.max(n,r.id+1);}for(BankLedger.Product p:banks){n=Math.max(n,p.id+1);for(BankLedger.Observation o:p.observations)n=Math.max(n,o.id+1);for(BankLedger.Event e:p.events)n=Math.max(n,e.id+1);}return n;}
+  public long nextId(){long n=System.currentTimeMillis();for(FundOrder order:fundOrders)n=Math.max(n,order.id+1);for(DebtLedger.Loan loan:debts){n=Math.max(n,loan.id+1);for(DebtLedger.Payment p:loan.payments)n=Math.max(n,p.id+1);}for(ImportJournal.Batch b:imports)n=Math.max(n,b.id+1);for(Account a:accounts)n=Math.max(n,a.id+1);for(Snapshot s:snapshots)n=Math.max(n,s.id+1);for(Entry e:entries)n=Math.max(n,e.id+1);for(WatchGroup g:watchGroups)n=Math.max(n,g.id+1);for(Fund f:funds){n=Math.max(n,f.id+1);for(FundBuy b:f.buys)n=Math.max(n,b.id+1);for(RecurringRecord r:f.plan.records)n=Math.max(n,r.id+1);}for(BankLedger.Product p:banks){n=Math.max(n,p.id+1);for(BankLedger.Observation o:p.observations)n=Math.max(n,o.id+1);for(BankLedger.Event e:p.events)n=Math.max(n,e.id+1);}return n;}
  }
  public static final class Report {
   public final YearMonth month;public Snapshot start,end;public boolean baseline,closed,anomaly,available,imported;public long expense;public int days;public LocalDateTime through;

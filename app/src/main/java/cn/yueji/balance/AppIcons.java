@@ -27,8 +27,12 @@ final class AppIcons {
         if(prefs.getInt("appIcon",DEFAULT)==3)prefs.edit().putInt("appIcon",DEFAULT).commit();
         sync(context);NotificationArt.restyle(context);
     }
-    static int resource(int choice){return choice==0?R.mipmap.icon_classic:choice==1?R.mipmap.icon_moon:R.mipmap.icon_petals;}
+    static int resource(int choice){return choice==0?R.mipmap.icon_classic:choice==1?R.mipmap.icon_moon:R.mipmap.icon_yueji_two_petals;}
     static int small(Context context){int choice=selected(context);return choice==0?R.drawable.ic_stat_classic:choice==1?R.drawable.ic_stat_moon:R.drawable.ic_stat_two_petals;}
+    static Icon notificationIcon(Context context){
+        Drawable source=context.getDrawable(small(context));Bitmap bitmap=Bitmap.createBitmap(96,96,Bitmap.Config.ARGB_8888);
+        source.setBounds(0,0,96,96);source.draw(new Canvas(bitmap));return Icon.createWithBitmap(bitmap);
+    }
     static Drawable drawable(Context context){
         return context.getDrawable(resource(selected(context)));
     }
