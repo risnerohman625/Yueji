@@ -7,7 +7,7 @@ import android.widget.*;
 
 /** Small anchored explanations, reserved for easily misunderstood bookkeeping rules. */
 final class InlineHelp {
-    static final String CASH_POLICY="勾选：必选账户，收入加余额、支出减余额，并留来源。\n不勾选：仅存明细，不自动改余额；收入仍参与统计和支出修正。\n补录就近参考真实余额，后续实测逆推；大宗支出不重复叠加。";
+    static final String CASH_POLICY="勾选：必选账户，生成带正负号的金额流水，不推算实测余额。\n不勾选：仅存明细；收入仍参与统计与支出修正。\n账户金额＝最后实测＋此后流水，下一次实测重新起算。\n月支出只按实测差额核算；大宗支出不重复加。";
     static String forTitle(String title){
         switch(title){
             case "大宗支出明细":return CASH_POLICY;

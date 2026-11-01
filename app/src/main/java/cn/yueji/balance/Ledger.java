@@ -16,6 +16,7 @@ public final class Ledger {
   public long id,opening; public String name,type; public LocalDateTime created;
   public boolean openingKnown=true;
   public final Set<LocalDateTime> skippedCashObservations=new LinkedHashSet<>();
+  public final Set<String> hiddenActivityKeys=new LinkedHashSet<>();
   public LocalDateTime deletedAt;
   public Account(long id,String name,String type){this.id=id;this.name=name;this.type=type;}
  }
@@ -41,7 +42,7 @@ public final class Ledger {
   public String reimbursementStatus(){long total=receivedTotal();return total==0?"待报销":total==amount?"已报销":"部分报销";}
  }
  public static final class Receipt {
-  public long amount,accountId;public LocalDateTime at;
+  public long id,amount,accountId;public LocalDateTime at;
   public boolean cashLinked;
   public Receipt(long amount,LocalDateTime at){this.amount=amount;this.at=at;}
  }
@@ -50,6 +51,7 @@ public final class Ledger {
  }
  public static final class HistoryMonth {
   public long importId;
+  public boolean fixedCutoff;
   public YearMonth month; public long expense; public LocalDateTime cutoff; public boolean includesAdvances;
   public HistoryMonth(YearMonth m,long e,LocalDateTime c){month=m;expense=e;cutoff=c;}
   public boolean full(){return cutoff.equals(month.plusMonths(1).atDay(1).atStartOfDay());}
@@ -158,7 +160,7 @@ public final class Ledger {
   public long balance(Account a){Long value=AccountRecords.balanceAt(this,a,null);return value==null?0:value;}
   public long total(){long v=0;for(Account a:accounts)if(a.deletedAt==null)v=Math.addExact(v,balance(a));return v;}
   public List<Account> activeAccounts(){List<Account> list=new ArrayList<>();for(Account a:accounts)if(a.deletedAt==null)list.add(a);return list;}
-  public long nextId(){long n=System.currentTimeMillis();for(Transfer t:transfers)n=Math.max(n,t.id+1);for(FundOrder order:fundOrders)n=Math.max(n,order.id+1);for(DebtLedger.Loan loan:debts){n=Math.max(n,loan.id+1);for(DebtLedger.Payment p:loan.payments)n=Math.max(n,p.id+1);}for(ImportJournal.Batch b:imports)n=Math.max(n,b.id+1);for(Account a:accounts)n=Math.max(n,a.id+1);for(Snapshot s:snapshots)n=Math.max(n,s.id+1);for(Entry e:entries)n=Math.max(n,e.id+1);for(WatchGroup g:watchGroups)n=Math.max(n,g.id+1);for(Fund f:funds){n=Math.max(n,f.id+1);for(FundBuy b:f.buys)n=Math.max(n,b.id+1);for(RecurringRecord r:f.plan.records)n=Math.max(n,r.id+1);}for(BankLedger.Product p:banks){n=Math.max(n,p.id+1);for(BankLedger.Observation o:p.observations)n=Math.max(n,o.id+1);for(BankLedger.Event e:p.events)n=Math.max(n,e.id+1);}return n;}
+  public long nextId(){long n=System.currentTimeMillis();for(Transfer t:transfers)n=Math.max(n,t.id+1);for(FundOrder order:fundOrders)n=Math.max(n,order.id+1);for(DebtLedger.Loan loan:debts){n=Math.max(n,loan.id+1);for(DebtLedger.Payment p:loan.payments)n=Math.max(n,p.id+1);}for(ImportJournal.Batch b:imports)n=Math.max(n,b.id+1);for(Account a:accounts)n=Math.max(n,a.id+1);for(Snapshot s:snapshots)n=Math.max(n,s.id+1);for(Entry e:entries){n=Math.max(n,e.id+1);for(Receipt r:e.receipts)n=Math.max(n,r.id+1);}for(WatchGroup g:watchGroups)n=Math.max(n,g.id+1);for(Fund f:funds){n=Math.max(n,f.id+1);for(FundBuy b:f.buys)n=Math.max(n,b.id+1);for(RecurringRecord r:f.plan.records)n=Math.max(n,r.id+1);}for(BankLedger.Product p:banks){n=Math.max(n,p.id+1);for(BankLedger.Observation o:p.observations)n=Math.max(n,o.id+1);for(BankLedger.Event e:p.events)n=Math.max(n,e.id+1);}return n;}
  }
  public static final class Report {
   public final YearMonth month;public Snapshot start,end;public boolean baseline,closed,anomaly,available,imported;public long expense;public int days;public LocalDateTime through;
@@ -214,7 +216,7 @@ public final class Ledger {
  public static long expenseBetween(Snapshot a,Snapshot b,List<Entry> entries){Data d=new Data();d.entries.addAll(entries);for(Map.Entry<Long,Long> v:b.balances.entrySet()){Account x=new Account(v.getKey(),"","");x.opening=v.getValue();d.accounts.add(x);}return expenseBetween(a,b,d);}
  /** The newest imported month is read as "spent until the first check" when that check falls inside the same month after its first instant; a check at 00:00 on the 1st leaves nothing to bridge, so the figure stays the whole month. */
  public static LocalDateTime historyCutoff(Data d,HistoryMonth h){
-  if(!h.full())return h.cutoff;
+  if(h.fixedCutoff||!h.full())return h.cutoff;
   YearMonth newest=null;for(HistoryMonth x:d.history)if(newest==null||x.month.isAfter(newest))newest=x.month;
   if(!h.month.equals(newest))return h.cutoff;
   LocalDateTime first=null;for(Snapshot s:d.snapshots)if(!s.cashGenerated&&YearMonth.from(s.at).equals(h.month)&&(first==null||s.at.isBefore(first)))first=s.at;

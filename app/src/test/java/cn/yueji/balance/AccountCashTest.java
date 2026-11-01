@@ -27,8 +27,7 @@ public class AccountCashTest {
     @Test public void incomeAddsBalanceAndIsExcludedFromDifferenceExpense(){
         Ledger.Data d=data();entry(d,20,Ledger.INCOME,50000,"2026-09-05T12:00",1);AccountCash.rebuild(d);
         assertEquals(150000,d.balance(d.accounts.get(0)));assertEquals(0,Ledger.month(d,YearMonth.of(2026,9)).expense);
-        assertEquals(50000,Ledger.income(d,2026));assertEquals(2,d.snapshots.size());Ledger.Snapshot generated=d.snapshots.get(1);
-        assertTrue(generated.cashGenerated);assertEquals(Collections.singleton(1L),generated.cashAccounts);assertEquals(1,generated.balances.size());
+        assertEquals(50000,Ledger.income(d,2026));assertEquals(1,d.snapshots.size());assertEquals(1,AccountCash.rows(d,d.accounts.get(0)).size());assertEquals(50000,AccountCash.flows(d).get(0).delta);
         snap(d,30,"2026-10-01T00:00",1,140000,2,200000);AccountCash.rebuild(d);assertEquals(10000,Ledger.month(d,YearMonth.of(2026,9)).expense);
     }
     @Test public void crossMonthAdvanceAndReturnOnDifferentAccountsNeverBecomeExpenseOrIncome(){
@@ -42,7 +41,7 @@ public class AccountCashTest {
     @Test public void sameMonthOctoberExampleCreatesTwoRealAccountTimelineRows(){
         Ledger.Data d=data();snap(d,30,"2026-10-01T00:00",1,100000,2,200000);
         Ledger.Entry e=entry(d,20,Ledger.REIMBURSE,50000,"2026-10-05T10:00",1);receipt(e,50000,"2026-10-22T15:00",2);AccountCash.rebuild(d);
-        assertEquals(4,d.snapshots.size());assertEquals(0,Ledger.month(d,YearMonth.of(2026,10)).expense);assertEquals(300000,d.total());
+        assertEquals(2,d.snapshots.size());assertEquals(2,AccountCash.flows(d).size());assertEquals(0,Ledger.month(d,YearMonth.of(2026,10)).expense);assertEquals(300000,d.total());
         assertEquals(250000L,(long)AssetHistory.valueAt(d,at("2026-10-06T00:00")));
     }
     @Test public void multipleReceiptsUseTheirOwnAccountsAndDoNotRepeatPrincipal(){
@@ -55,11 +54,11 @@ public class AccountCashTest {
         Ledger.Data d=data();Ledger.Entry e=entry(d,20,Ledger.INCOME,50000,"2026-09-05T10:00",1);AccountCash.rebuild(d);
         e.amount=80000;e.at=at("2026-09-06T11:00");e.accountId=2;AccountCash.rebuild(d);
         assertEquals(100000,d.balance(d.accounts.get(0)));assertEquals(280000,d.balance(d.accounts.get(1)));
-        assertEquals(2,d.snapshots.size());assertEquals(e.at,d.snapshots.get(1).at);assertEquals(0,Ledger.month(d,YearMonth.of(2026,9)).expense);
+        assertEquals(1,d.snapshots.size());assertEquals(e.at,AccountCash.flows(d).get(0).at);assertEquals(0,Ledger.month(d,YearMonth.of(2026,9)).expense);
     }
     @Test public void deletingReceiptOrEntryRemovesOnlyItsOwnedBalanceEffects(){
         Ledger.Data d=data();Ledger.Entry e=entry(d,20,Ledger.REIMBURSE,50000,"2026-09-05T10:00",1);receipt(e,50000,"2026-09-10T10:00",2);AccountCash.rebuild(d);
-        e.receipts.clear();e.status=e.reimbursementStatus();AccountCash.rebuild(d);assertEquals(250000,d.total());assertEquals(2,d.snapshots.size());
+        e.receipts.clear();e.status=e.reimbursementStatus();AccountCash.rebuild(d);assertEquals(250000,d.total());assertEquals(1,d.snapshots.size());
         d.entries.clear();AccountCash.rebuild(d);assertEquals(300000,d.total());assertEquals(1,d.snapshots.size());
     }
     @Test public void actualObservationResetsBalanceAndIsNeverRewrittenByEditingAnOlderIncome(){
@@ -75,12 +74,12 @@ public class AccountCashTest {
     @Test public void simultaneousCashFlowsMergeIntoSinglePostTransactionSnapshot(){
         Ledger.Data d=data();entry(d,20,Ledger.INCOME,50000,"2026-09-05T10:00",1);entry(d,21,Ledger.REIMBURSE,20000,"2026-09-05T10:00",1);
         entry(d,22,Ledger.INCOME,30000,"2026-09-05T10:00",2);AccountCash.rebuild(d);
-        assertEquals(2,d.snapshots.size());assertEquals(130000,d.balance(d.accounts.get(0)));assertEquals(230000,d.balance(d.accounts.get(1)));
+        assertEquals(1,d.snapshots.size());assertEquals(3,AccountCash.flows(d).size());assertEquals(130000,d.balance(d.accounts.get(0)));assertEquals(230000,d.balance(d.accounts.get(1)));
         assertEquals(0,Ledger.month(d,YearMonth.of(2026,9)).expense);
     }
     @Test public void sameTimestampManualPartialRetainsOtherAccountsAutomaticCell(){
         Ledger.Data d=data();entry(d,20,Ledger.INCOME,50000,"2026-09-05T10:00",1);snap(d,30,"2026-09-05T10:00",2,195000);AccountCash.rebuild(d);
-        assertEquals(2,d.snapshots.size());Ledger.Snapshot s=d.snapshots.get(1);assertFalse(s.cashGenerated);assertEquals(150000L,(long)s.balances.get(1L));assertEquals(195000L,(long)s.balances.get(2L));
+        assertEquals(2,d.snapshots.size());Ledger.Snapshot s=d.snapshots.get(1);assertFalse(s.cashGenerated);assertFalse(s.balances.containsKey(1L));assertEquals(150000,d.balance(d.accounts.get(0)));assertEquals(195000L,(long)s.balances.get(2L));
         d.entries.clear();AccountCash.rebuild(d);assertEquals(1,s.balances.size());assertEquals(195000L,(long)s.balances.get(2L));
     }
     @Test public void manualVerificationOfGeneratedCellPreventsFutureRewrite(){
@@ -91,7 +90,7 @@ public class AccountCashTest {
     @Test public void removingManualVerificationRevealsCalculatedBalanceAgain(){
         Ledger.Data d=data();Ledger.Entry e=entry(d,20,Ledger.INCOME,50000,"2026-09-05T10:00",1);AccountCash.rebuild(d);
         MonthLedger.updateAccount(d,1,e.at,160000);d.snapshots.removeIf(s->s.at.equals(e.at));AccountCash.rebuild(d);
-        assertEquals(150000,d.balance(d.accounts.get(0)));assertTrue(d.snapshots.get(1).cashGenerated);
+        assertEquals(150000,d.balance(d.accounts.get(0)));assertEquals(1,d.snapshots.size());assertEquals(1,AccountCash.flows(d).size());
     }
     @Test public void oldUnassignedAndAssignedImportedEntriesDoNotGenerateBalances(){
         Ledger.Data d=data();Ledger.Entry a=entry(d,20,Ledger.INCOME,50000,"2026-09-05T10:00",0);a.cashLinked=false;
@@ -114,7 +113,7 @@ public class AccountCashTest {
     }
     @Test public void backupRoundTripRetainsCashOwnershipAndRemainsIdempotent()throws Exception{
         Ledger.Data d=data();Ledger.Entry e=entry(d,20,Ledger.REIMBURSE,50000,"2026-09-05T10:00",1);receipt(e,50000,"2026-10-22T10:00",2);
-        LedgerStore.validate(d);String original=LedgerStore.encode(d);assertEquals(16,new org.json.JSONObject(original).getInt("version"));
+        LedgerStore.validate(d);String original=LedgerStore.encode(d);assertEquals(17,new org.json.JSONObject(original).getInt("version"));
         Ledger.Data restored=LedgerStore.decode(original);LedgerStore.validate(restored);assertEquals(original,LedgerStore.encode(restored));assertTrue(restored.entries.get(0).cashLinked);assertTrue(restored.entries.get(0).receipts.get(0).cashLinked);
     }
     @Test public void missingAccountAndInsufficientBalanceAreRejected(){

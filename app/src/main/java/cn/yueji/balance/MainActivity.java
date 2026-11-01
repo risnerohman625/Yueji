@@ -363,8 +363,11 @@ public class MainActivity extends Activity {
     }
     void accountHistory(){Ledger.Account a=focusedAccount();if(a==null){go("");return;}top("账户余额更新记录",null,null);
         body.addView(text(a.name+" · "+a.type,13,MUTED,false));gap(body,10);LinearLayout actions=row();TextView transfer=action("转账",()->new TransferScreens(this).open(a.id,null));weight(actions,transfer);TextView update=button("更新余额",()->updateAccountBalance(a,null));LinearLayout.LayoutParams updateLp=new LinearLayout.LayoutParams(0,dp(44),1);updateLp.leftMargin=dp(10);actions.addView(update,updateLp);body.addView(actions);gap(body,6);
-        InlineHelp.add(this,body,"余额记录","左滑可编辑时间、余额或删除本账户这一条记录。\n删除不影响其他账户，也不删除关联收支或投资；自动余额删除后不会重新出现。");
-        for(Ledger.Snapshot s:AccountRecords.rows(data,a)){
+        InlineHelp.add(this,body,"余额记录","实测余额用于核算支出；带正负号的是出入账金额，不是余额。\n删除金额条目仅隐藏卡片，原收支仍有效；编辑原记录后保存可恢复。");
+        List<Object> history=new ArrayList<>(AccountRecords.rows(data,a));history.addAll(AccountCash.rows(data,a));
+        history.sort(Comparator.comparing((Object item)->item instanceof Ledger.Snapshot?((Ledger.Snapshot)item).at:((AccountCash.Flow)item).at).reversed().thenComparing(item->item instanceof Ledger.Snapshot?"balance":"flow:"+((AccountCash.Flow)item).key));
+        for(Object item:history){
+            if(item instanceof AccountCash.Flow){accountActivity(a,(AccountCash.Flow)item);continue;}Ledger.Snapshot s=(Ledger.Snapshot)item;
             boolean initial=a.openingKnown&&s.at.equals(a.created);LinearLayout c=card(),r=row();c.setBackground(ripple(WHITE,18));
             TextView date=fit(text(TIME.format(s.at),12,INK,true),12,8);r.addView(date,new LinearLayout.LayoutParams(0,dp(29),1));
             TextView balance=fit(text("¥ "+money(s.balances.get(a.id)),17,PURPLE,true),17,8);balance.setTag("bounded-number");LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,dp(29),1.1f);bp.leftMargin=dp(8);r.addView(balance,bp);c.addView(r);
@@ -376,9 +379,22 @@ public class MainActivity extends Activity {
         }
         if(!a.openingKnown)body.addView(text("初始余额已删除，以首条保留余额为计算起点；没有余额记录时显示待录入。可在编辑账户中重新设置初始余额。",12,MUTED,false));
     }
+    void accountActivity(Ledger.Account a,AccountCash.Flow flow){
+        LinearLayout c=card(),r=row();c.setContentDescription("账户金额流水"+flow.key);c.setBackground(ripple(WHITE,18));
+        r.addView(fit(text(TIME.format(flow.at),12,INK,true),12,8),new LinearLayout.LayoutParams(0,dp(29),1));
+        TextView amount=fit(text((flow.delta>=0?"+":"-")+"¥ "+money(Math.abs(flow.delta)),17,flow.delta>=0?Ui.GREEN:RED,true),17,8);amount.setTag("bounded-number");r.addView(amount,new LinearLayout.LayoutParams(0,dp(29),1.1f));c.addView(r);gap(c,4);c.addView(text(flow.source,12,MUTED,false));
+        c.setOnClickListener(v->editAccountActivity(a,flow));
+        SwipeRow swipe=new SwipeRow(this,c,new SwipeRow.Action("编辑","编辑金额流水"+flow.key,PURPLE,false,()->editAccountActivity(a,flow)),new SwipeRow.Action("删除","删除金额流水"+flow.key,RED,false,()->AppIcons.dialog(this).setTitle("隐藏这条金额流水？").setMessage("只隐藏本账户卡片，不撤销收支或资金变动；在原记录再次保存可恢复。要撤销记账，请编辑原记录取消关联，或删除原记录。").setNegativeButton("取消",null).setPositiveButton("删除",(d,w)->{try{Ledger.Data candidate=copy();AccountCash.hide(candidate,a.id,flow.key);commit(candidate);render();}catch(Exception e){error(e);}}).show()));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(8);body.addView(swipe,lp);
+    }
+    void editAccountActivity(Ledger.Account account,AccountCash.Flow flow){
+        if(flow.key.startsWith("entry:")||flow.key.startsWith("receipt:")){for(Ledger.Entry e:data.entries)if(e.id==flow.entryId){openEntry(e.kind,e);return;}}
+        if(flow.transfer){new TransferScreens(this).open(account.id,TransferLedger.find(data,flow.entryId));return;}
+        Ledger.Snapshot marker=new Ledger.Snapshot(0,flow.at,"");cashObservationMenu(account,marker);
+    }
     void deleteAccountObservation(Ledger.Account a,Ledger.Snapshot s){
         boolean initial=a.openingKnown&&a.created.equals(s.at);
-        AppIcons.dialog(this).setTitle(initial?"删除初始余额？":"删除这条余额？").setMessage(initial?"仅删除本账户的初始余额，保留账户和其他记录。后续以首条保留余额为起点；起点前的关联交易不再推算余额，补录后可重算。":"仅删除本账户这一条余额，其他账户和关联收支、投资记录保留。支出与资产统计会重新计算。")
+        AppIcons.dialog(this).setTitle(initial?"删除初始余额？":"删除这条余额？").setMessage(initial?"仅删除本账户的初始余额，保留账户和其他记录。后续以首条保留余额为起点；起点前的金额流水仍保留，但不再作为账面余额起点。":"仅删除本账户这一条余额，其他账户和关联收支、投资记录保留。支出与资产统计会重新计算。")
             .setNegativeButton("取消",null).setPositiveButton("删除",(d,w)->{try{Ledger.Data candidate=copy();AccountRecords.delete(candidate,a.id,s.at);commit(candidate);render();}catch(Exception e){error(e);}}).show();
     }
     void cashObservationMenu(Ledger.Account account,Ledger.Snapshot snapshot){
@@ -394,7 +410,7 @@ public class MainActivity extends Activity {
             for(BankLedger.Event event:product.events)if(event.accountLinked&&event.accountId==account.id&&event.completedAt!=null&&FundEngine.ledgerTime(event.completedAt).equals(snapshot.at))linked=true;
             if(linked){options.add("查看银行理财交易："+product.name);actions.add(()->{bankScreens.focus=product.id;go("bank_flows");});}
         }
-        options.add("核对为本账户实际余额");actions.add(()->updateAccountBalance(account,snapshot));
+        if(snapshot.balances.containsKey(account.id)){options.add("核对为本账户实际余额");actions.add(()->updateAccountBalance(account,snapshot));}
         AppIcons.dialog(this).setTitle("收支 / 投资账户变动").setItems(options.toArray(new String[0]),(d,w)->actions.get(w).run()).show();
     }
     void updateAccountBalance(Ledger.Account account,Ledger.Snapshot existing){
@@ -402,12 +418,12 @@ public class MainActivity extends Activity {
         EditText value=field(form,"本账户余额",existing==null&&!AccountRecords.known(data,account)?"":Ledger.decimal(existing==null?data.balance(account):existing.balances.get(account.id)),true);
         DateControl date=new DateControl(form,"余额对应时间",existing==null?LocalDateTime.now().withSecond(0).withNano(0):existing.at,false);
         EditText note=field(form,"余额备注",existing==null||existing.cashGenerated||existing.cashAccounts.contains(account.id)?"用户手动更新余额":existing.notes.getOrDefault(account.id,existing.note.isEmpty()?"用户手动更新余额":existing.note),false);
-        form.addView(text("只记录此账户本次实际余额，其他账户继续使用各自上次更新；同一时刻的记录会合并。核对自动记账余额后，以本次实测金额为准，之后修改收入或报销不会改写这条实测余额。",12,MUTED,false));
+        form.addView(text("只记录本账户当时的实际余额，同一账户的实测时间不能重复。此余额已包含当时及之前的交易，后续仅叠加它之后的金额流水；收入、报销等不会改写实测记录。",12,MUTED,false));
         AlertDialog dialog=AppIcons.dialog(this).setTitle(existing!=null&&account.openingKnown&&existing.at.equals(account.created)?"编辑初始余额":"更新 "+account.name).setView(wrap(form)).setNegativeButton("取消",null).setPositiveButton("保存",null).create();dialog.show();
         dialog.getButton(-1).setOnClickListener(v->{try{
             Ledger.Data candidate=copy();
             long amount=Ledger.parseMoney(value.getText().toString(),false);
-            if(existing==null)MonthLedger.updateAccount(candidate,account.id,date.at,amount,note.getText().toString());else AccountRecords.edit(candidate,account.id,existing.at,date.at,amount,note.getText().toString());commit(candidate);dialog.dismiss();render();
+            if(existing==null){for(Ledger.Snapshot row:AccountRecords.rows(candidate,AccountRecords.account(candidate,account.id)))if(row.at.equals(date.at))throw new IllegalArgumentException("此账户在此时刻已有实测余额，请编辑原记录；金额流水允许同刻多笔");MonthLedger.updateAccount(candidate,account.id,date.at,amount,note.getText().toString());}else AccountRecords.edit(candidate,account.id,existing.at,date.at,amount,note.getText().toString());commit(candidate);dialog.dismiss();render();
         }catch(Exception e){error(e);}});
     }
     void snapshotMenu(Ledger.Snapshot s){AppIcons.dialog(this).setTitle(TIME.format(s.at)).setItems(new String[]{"修改本次全部账户更新","删除更新"},(d,w)->{
@@ -579,19 +595,19 @@ public class MainActivity extends Activity {
         Spinner account=choices(f,linked?"垫付账户（必选）":reimburse?"账户（可选）":"账户（可选，勾选后必选）",accounts,selected);
         if(!reimburse&&available.isEmpty())f.addView(action("先添加账户",()->go("add_account")));
         if(reimburse){
-            gap(f,9);f.addView(text(linked?(income?"保存后自动增加到账账户余额；计算支出时排除这笔收入。":"垫付自动扣减所选账户，到账自动增加到账账户。报销不计入收入和支出；资产趋势保留金额变动。"):"历史记录保持原状，不自动补改旧余额。新增报销到账须选账户并自动增加余额。",11.5f,MUTED,false));
+            gap(f,9);f.addView(text(linked?(income?"保存后自动增加到账账户余额；计算支出时排除这笔收入。":"垫付自动扣减所选账户，到账创建入账金额流水。只叠加最后实测后的流水；垫付与到账均从个人支出剔除，到账不计收入。"):"历史记录保持原状，不自动补改旧余额。新增报销到账须选账户并自动增加余额。",11.5f,MUTED,false));
             if(available.isEmpty())f.addView(action("先添加账户",()->go("add_account")));
         }
         ReceiptEditor receipts=reimburse?new ReceiptEditor(this,f,amount,old):null;
         EditText note=field(f,"备注（可选）",old==null?"":old.note,false);Spinner finalCategory=category;gap(body,4);
-        CheckBox include=new CheckBox(this);include.setText("是/否计入账户收支");include.setContentDescription("是否计入账户收支");include.setTextColor(INK);include.setButtonTintList(ColorStateList.valueOf(Ui.ACCENT));include.setTextSize(14);include.setChecked(old!=null&&old.cashLinked);
-        if(!reimburse){LinearLayout policy=row();weight(policy,include);policy.addView(InlineHelp.icon(this,"计入账户收支",InlineHelp.CASH_POLICY));body.addView(policy);}
+        CheckBox include=new CheckBox(this);include.setText(reimburse?"生成垫付账户金额流水":"是/否计入账户收支");include.setContentDescription("是否计入账户收支");include.setTextColor(INK);include.setButtonTintList(ColorStateList.valueOf(Ui.ACCENT));include.setTextSize(14);include.setChecked(old==null?reimburse:old.cashLinked);
+        LinearLayout policy=row();weight(policy,include);policy.addView(InlineHelp.icon(this,"计入账户收支",reimburse?"垫付记出账，到账记入账；均不计个人收支。\n只叠加最后实测之后的流水，不会改写历史实测；到账须在到账明细中单独选账户。":InlineHelp.CASH_POLICY));body.addView(policy);
         body.addView(button("保存记录",()->{try{
-            if(!reimburse&&include.isChecked()&&account.getSelectedItemPosition()==0)throw new IllegalArgumentException("勾选计入账户收支后必须选择账户");
+            if(include.isChecked()&&account.getSelectedItemPosition()==0)throw new IllegalArgumentException("勾选计入账户收支后必须选择账户");
             Ledger.Data candidate=copy();long id=old==null?candidate.nextId():old.id;String title=income?finalCategory.getSelectedItem().toString():name.getText().toString().trim();
-            Ledger.Entry e=new Ledger.Entry(id,income,Ledger.parseMoney(amount.getText().toString(),true),at.at,title,note.getText().toString().trim(),account.getSelectedItemPosition()==0?0:available.get(account.getSelectedItemPosition()-1).id);e.kind=kind;e.cashLinked=reimburse?linked:include.isChecked();e.nearestCash=!reimburse;if(income)e.category=title;
+            Ledger.Entry e=new Ledger.Entry(id,income,Ledger.parseMoney(amount.getText().toString(),true),at.at,title,note.getText().toString().trim(),account.getSelectedItemPosition()==0?0:available.get(account.getSelectedItemPosition()-1).id);e.kind=kind;e.cashLinked=include.isChecked();e.nearestCash=!reimburse;if(income)e.category=title;
             if(reimburse)receipts.apply(e);
-            candidate.entries.removeIf(x->x.id==id);candidate.entries.add(e);commit(candidate);entryEditing=null;back();
+            candidate.entries.removeIf(x->x.id==id);candidate.entries.add(e);AccountCash.restoreEntry(candidate,e);commit(candidate);entryEditing=null;back();
         }catch(Exception e){error(e);}}));
         if(old!=null){gap(body,12);body.addView(action("删除记录",()->AppIcons.dialog(this).setTitle("删除这笔记录？").setNegativeButton("取消",null).setPositiveButton("删除",(d,w)->{try{Ledger.Data candidate=copy();candidate.entries.removeIf(x->x.id==old.id);commit(candidate);entryEditing=null;back();}catch(Exception e){error(e);}}).show()));}
         if(formDraft!=null)formDraft.restore(body);
@@ -705,7 +721,7 @@ public class MainActivity extends Activity {
         updates().about(card(body));
         for(int i=0;i<body.getChildCount();i++){View child=body.getChildAt(i);if(child.getLayoutParams() instanceof LinearLayout.LayoutParams){LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)child.getLayoutParams();lp.bottomMargin=Math.min(lp.bottomMargin,dp(8));child.setLayoutParams(lp);}}
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.11";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.12";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}
@@ -789,12 +805,13 @@ public class MainActivity extends Activity {
         LinearLayout f=col();f.setPadding(dp(20),0,dp(20),dp(14));EditText month=field(f,"月份（如 2026/10）",old==null?Ledger.csvMonth(YearMonth.now()):Ledger.csvMonth(old.month),false);EditText amount=field(f,"支出金额",old==null?"":Ledger.decimal(old.expense),true);
         EditText cutoff=field(f,"累计截止时间（可空，如 2026/10/16 12:00）",old!=null&&!old.full()?Ledger.csvMinute(old.cutoff):"",false);
         Spinner basis=choices(f,"历史金额是否包含报销垫付",new String[]{"已排除报销","包含报销垫付"},old!=null&&old.includesAdvances?1:0);
+        CheckBox fixed=new CheckBox(this);fixed.setText("已核准整月金额，不自动衔接本月余额");fixed.setTextColor(INK);fixed.setChecked(old==null||old.fixedCutoff);f.addView(fixed);
         AlertDialog d=AppIcons.dialog(this).setTitle("历史月支出").setView(wrap(f)).setNegativeButton("取消",null).setPositiveButton("保存",null).create();d.show();
         d.getButton(-1).setOnClickListener(v->{try{
             YearMonth ym=Ledger.parseCsvMonth(month.getText().toString());if(ym.isAfter(YearMonth.now()))throw new IllegalArgumentException("月份不能晚于当前月份");
             LocalDateTime through=cutoff.getText().toString().trim().isEmpty()?ym.plusMonths(1).atDay(1).atStartOfDay():Ledger.parseCsvMinute(cutoff.getText().toString().trim());
             if(!through.equals(ym.plusMonths(1).atDay(1).atStartOfDay())&&!YearMonth.from(through).equals(ym))throw new IllegalArgumentException("累计截止时间须在所选月份内");
-            Ledger.HistoryMonth h=new Ledger.HistoryMonth(ym,Ledger.parseMoney(amount.getText().toString(),false),through);h.includesAdvances=basis.getSelectedItemPosition()==1;
+            Ledger.HistoryMonth h=new Ledger.HistoryMonth(ym,Ledger.parseMoney(amount.getText().toString(),false),through);h.includesAdvances=basis.getSelectedItemPosition()==1;h.fixedCutoff=fixed.isChecked();
             Ledger.Data candidate=copy();candidate.history.removeIf(x->x.month.equals(ym)||old!=null&&x.month.equals(old.month));candidate.history.add(h);commit(candidate);d.dismiss();render();
         }catch(Exception e){error(e);}});
     }

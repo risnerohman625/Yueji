@@ -14,7 +14,7 @@ final class ReceiptEditor {
     ReceiptEditor(MainActivity m,LinearLayout parent,EditText total,Ledger.Entry old){
         this.m=m;this.total=total;
         status=m.choices(parent,"报销状态",new String[]{"待报销","部分报销","已报销"},old==null?0:Arrays.asList("待报销","部分报销","已报销").indexOf(old.reimbursementStatus()));
-        if(old!=null){for(Ledger.Receipt r:old.receipts){Ledger.Receipt c=new Ledger.Receipt(r.amount,r.at);c.accountId=r.accountId;c.cashLinked=r.cashLinked;values.add(c);}if(old.receipts.isEmpty()&&old.received>0)values.add(new Ledger.Receipt(old.received,old.receivedAt));}
+        if(old!=null){for(Ledger.Receipt r:old.receipts){Ledger.Receipt c=new Ledger.Receipt(r.amount,r.at);c.id=r.id;c.accountId=r.accountId;c.cashLinked=r.cashLinked;values.add(c);}if(old.receipts.isEmpty()&&old.received>0)values.add(new Ledger.Receipt(old.received,old.receivedAt));}
         rows=m.col();parent.addView(rows);
         add=m.action("＋ 添加一次报销到账",()->edit(null));parent.addView(add);
         status.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onNothingSelected(AdapterView<?> p){}public void onItemSelected(AdapterView<?> p,View v,int i,long id){
@@ -42,11 +42,12 @@ final class ReceiptEditor {
         String[] names=new String[available.size()+1];names[0]=linked?"请选择到账账户":"不指定账户";int selected=0;
         for(int i=0;i<available.size();i++){names[i+1]=available.get(i).name;if(old!=null&&old.accountId==available.get(i).id)selected=i+1;}
         Spinner account=m.choices(form,linked?"到账账户（必选）":"到账账户（历史）",names,selected);
-        form.addView(m.text(linked?"保存整笔报销后，自动增加到账账户余额，不计入收入。":"历史到账保留原有记录，不自动补改余额。",11,MainActivity.MUTED,false));
+        CheckBox cash=new CheckBox(m);cash.setText("生成到账账户金额流水");cash.setTextColor(MainActivity.INK);cash.setChecked(linked);form.addView(cash);
+        form.addView(m.text(linked?"保存整笔报销后，新增到账金额流水；实测后的入账计入账面余额，不计收入。":"历史到账保留原有记录，不自动补改余额。",11,MainActivity.MUTED,false));
         AlertDialog d=AppIcons.dialog(m).setTitle(old==null?"报销到账":"修改到账").setView(m.wrap(form)).setNegativeButton("取消",null).setPositiveButton("保存到账",null).create();d.show();d.getButton(-1).setOnClickListener(v->{try{
             long cents=Ledger.parseMoney(money.getText().toString(),true);long next=received()-(old==null?0:old.amount)+cents;if(next>amount())throw new IllegalArgumentException("累计到账不能大于报销金额");if(at.at.isAfter(LocalDateTime.now()))throw new IllegalArgumentException("到账时间不能在未来");
-            Ledger.Receipt r=new Ledger.Receipt(cents,at.at);r.cashLinked=linked;r.accountId=account.getSelectedItemPosition()==0?0:available.get(account.getSelectedItemPosition()-1).id;
-            if(linked)AccountCash.requireAccount(m.data,r.accountId,r.at);
+            Ledger.Receipt r=new Ledger.Receipt(cents,at.at);r.id=old==null?0:old.id;r.cashLinked=cash.isChecked();r.accountId=account.getSelectedItemPosition()==0?0:available.get(account.getSelectedItemPosition()-1).id;
+            if(r.cashLinked)AccountCash.requireAccount(m.data,r.accountId,r.at);
             if(old!=null)values.set(values.indexOf(old),r);else values.add(r);d.dismiss();refresh();
         }catch(Exception e){m.error(e);}});
     }

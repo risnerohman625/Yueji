@@ -86,7 +86,7 @@ final class AssetTrendChart extends View {
         }
         c.restore();
         if(selected>=0){
-            AssetHistory.Point point=points.get(selected);String text=point.at.format(TIME)+"  "+(point.amount==null?"净值待补全":"¥ "+String.format(Locale.CHINA,"%,.2f",point.amount/100d));
+            AssetHistory.Point point=points.get(selected);String text=point.at.format(DATE)+"  "+(point.amount==null?"净值待补全":"¥ "+String.format(Locale.CHINA,"%,.2f",point.amount/100d));
             tooltip.draw(c,text,pointX(selected),point.amount==null?getHeight()/2f:pointY(point.amount),getWidth(),getHeight(),getResources().getDisplayMetrics().density);
         }
     }

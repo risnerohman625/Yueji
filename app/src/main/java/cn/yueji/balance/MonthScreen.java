@@ -10,7 +10,7 @@ final class MonthScreen {
         MonthLedger.Result result=MonthLedger.calculate(m.data,month);Ledger.Report r=result.report;
         Ledger.Report previous=Ledger.month(m.data,month.minusMonths(1));
         LinearLayout summary=m.card(m.body);
-        InlineHelp.add(m,summary,"月支出口径","各账户上月末最后余额－本月最后余额＋本月收入，再剔除报销、投资和内部转账。\n请尽量在每月最后一笔收支之后核对余额；月初零点记录作为两月边界。\n缺少上月记录时只统计本月已知区间，不把跨多月差额冒充单月消费；推算边界会标注参考。");
+        InlineHelp.add(m,summary,"月支出口径","各账户上月末最后余额－本月最后余额＋本月收入，再剔除报销、投资和内部转账。\n请尽量在每月最后一笔收支之后核对余额；月初零点记录作为两月边界。\n缺少上月记录时只统计本月已知区间，不把跨多月差额冒充单月消费；没有本月真实余额时不拿金额流水假装更新；未到月末核对仅供参考。");
         m.detailMetric(summary,r.estimated?"总支出（估算）":r.incomplete?"总支出（部分）":"总支出",r.hasData()?"¥ "+m.money(r.expense):"暂无数据",r.anomaly?Ui.AMBER:Ui.GREEN);
         m.detailMetric(summary,"日均支出",r.hasDaily()?"¥ "+m.money(r.daily()):"—",Ui.ACCENT);
         String compared="—";
@@ -35,7 +35,7 @@ final class MonthScreen {
         if(result.adjustment!=0){
             LinearLayout adjustments=m.card(m.body);adjustments.addView(m.text("收入、报销、投资及转账修正",13,Ui.INK,true));m.gap(adjustments,6);
             adjustments.addView(m.text(m.signed(result.adjustment)+" 元",16,Ui.ACCENT,true));
-            adjustments.addView(m.text("按本月实际覆盖区间加回收入，并剔除报销、投资和内部转账。大宗支出已反映在余额差中，不再额外叠加。收入/支出是否生成余额，由记录页复选框控制。",11,Ui.MUTED,false));
+            adjustments.addView(m.text("按本月实际覆盖区间加回收入，并剔除报销、投资和内部转账。大宗支出已反映在余额差中，不再额外叠加。收入/支出是否生成金额流水，由记录页复选框控制；流水不是实测余额。",11,Ui.MUTED,false));
         }
         if(result.changes.isEmpty()){
             LinearLayout note=m.card(m.body);note.addView(m.text(result.history==null?"缺少可比较的起止余额，支出暂为0；补齐上月末或本月余额后计算。":"历史基准之后暂无可计算的余额变化，当前仅显示历史金额。",12,Ui.MUTED,false));

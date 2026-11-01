@@ -28,25 +28,25 @@ final class AssetHistory {
         return values;
     }
     static List<Point> observations(Ledger.Data data,LocalDateTime through){
-        SortedSet<LocalDateTime> times=new TreeSet<>();
-        for(Ledger.Snapshot s:data.snapshots)if(!s.at.isAfter(through))times.add(s.at);
+        SortedSet<LocalDate> times=new TreeSet<>();
+        for(Ledger.Snapshot s:data.snapshots)if(!s.cashGenerated&&!s.at.isAfter(through))times.add(s.at.toLocalDate());
         // A portfolio-only ledger still has real NAV/statement dates to plot.
         if(times.isEmpty()){
             for(Ledger.Fund f:data.funds)if(!f.hidden&&!f.removed()){
-                for(LocalDate date:f.prices.keySet())if(!date.isAfter(through.toLocalDate()))times.add(date.atTime(15,0));
-                for(Ledger.FundBuy b:f.buys)if(!b.at.isAfter(through))times.add(b.at);
+                for(LocalDate date:f.prices.keySet())if(!date.isAfter(through.toLocalDate()))times.add(date);
+                for(Ledger.FundBuy b:f.buys)if(!b.at.isAfter(through))times.add(b.at.toLocalDate());
             }
-            for(BankLedger.Product p:data.banks)if(!p.hidden&&!p.removed())for(BankLedger.Observation o:p.observations)if(!o.at.isAfter(through))times.add(o.at);
+            for(BankLedger.Product p:data.banks)if(!p.hidden&&!p.removed())for(BankLedger.Observation o:p.observations)if(!o.at.isAfter(through))times.add(o.at.toLocalDate());
         }
         List<Point> result=new ArrayList<>();
-        for(LocalDateTime time:times)if(!time.isAfter(through))result.add(new Point(time,valueAt(data,time)));
+        for(LocalDate day:times){LocalDateTime end=day.equals(through.toLocalDate())?through:day.atTime(LocalTime.MAX);result.add(new Point(day.atStartOfDay(),valueAt(data,end)));}
         return result;
     }
     static Long valueAt(Ledger.Data data,LocalDateTime time){
-        long total=0;
+        long total=0;List<AccountCash.Flow> flows=AccountCash.flows(data);
         for(Ledger.Account a:data.accounts){
             if(a.created!=null&&a.created.isAfter(time)||a.deletedAt!=null&&!a.deletedAt.isAfter(time))continue;
-            Long balance=AccountRecords.balanceAt(data,a,time);if(balance==null)return null;
+            Long balance=AccountRecords.balanceAt(data,a,time,flows);if(balance==null)return null;
             total=Math.addExact(total,balance);
         }
         for(Ledger.Fund f:data.funds)if(!f.hidden&&(f.removedAt==null||time.isBefore(f.removedAt))){

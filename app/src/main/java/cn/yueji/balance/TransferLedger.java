@@ -11,7 +11,7 @@ final class TransferLedger {
     static Ledger.Transfer save(Ledger.Data data,long id,long from,long to,long amount,LocalDateTime at,String note){
         Ledger.Transfer t=new Ledger.Transfer();t.id=id==0?data.nextId():id;t.fromId=from;t.toId=to;t.amount=amount;t.at=at;t.note=note==null?"":note.trim();
         if(id!=0&&find(data,id)==null)throw new IllegalArgumentException("原转账已删除，请重新打开");
-        check(data,t);data.transfers.removeIf(v->v.id==t.id);data.transfers.add(t);return t;
+        check(data,t);data.transfers.removeIf(v->v.id==t.id);data.transfers.add(t);AccountCash.restore(data,"transfer:"+t.id+":out");AccountCash.restore(data,"transfer:"+t.id+":in");return t;
     }
     static void check(Ledger.Data data,Ledger.Transfer t){
         if(t.id<=0||t.fromId==t.toId||t.amount<=0||t.amount>Ledger.MAX_MONEY||t.at==null||t.at.getYear()<2000||t.at.isAfter(LocalDateTime.now())||t.note.length()>1000)throw new IllegalArgumentException("转账账户、时间或金额无效，转出与转入账户必须不同");

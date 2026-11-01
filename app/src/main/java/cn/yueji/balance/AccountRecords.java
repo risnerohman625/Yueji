@@ -14,7 +14,7 @@ final class AccountRecords {
     }
     static List<Ledger.Snapshot> rows(Ledger.Data data,Ledger.Account account){
         List<Ledger.Snapshot> result=new ArrayList<>();boolean initial=false;
-        for(Ledger.Snapshot s:data.snapshots)if(s.balances.containsKey(account.id)){result.add(s);if(s.at.equals(account.created))initial=true;}
+        for(Ledger.Snapshot s:data.snapshots)if(AccountCash.actual(s,account.id)&&s.balances.containsKey(account.id)){result.add(s);if(s.at.equals(account.created))initial=true;}
         if(account.openingKnown&&!initial){Ledger.Snapshot s=new Ledger.Snapshot(0,account.created,"");s.partial=true;s.balances.put(account.id,account.opening);result.add(s);}
         result.sort(Comparator.comparing((Ledger.Snapshot s)->s.at).reversed());return result;
     }
@@ -53,12 +53,15 @@ final class AccountRecords {
     }
     static String note(Ledger.Snapshot s,long id){String user=s.notes.containsKey(id)?s.notes.get(id):s.cashGenerated?"":s.note;String source=s.sources.get(id);return source==null||source.isEmpty()?user:user.isEmpty()?source:user+"\n"+source;}
     static Long balanceAt(Ledger.Data data,Ledger.Account a,LocalDateTime through){
+        return balanceAt(data,a,through,AccountCash.flows(data));
+    }
+    static Long balanceAt(Ledger.Data data,Ledger.Account a,LocalDateTime through,List<AccountCash.Flow> flows){
+        if(through!=null&&a.created!=null&&through.isBefore(a.created))return null;
         Long amount=a.openingKnown?a.opening:null;LocalDateTime latest=null;
-        for(Ledger.Snapshot s:data.snapshots)if((through==null||!s.at.isAfter(through))&&s.balances.containsKey(a.id)&&(latest==null||!s.at.isBefore(latest))){amount=s.balances.get(a.id);latest=s.at;}
+        for(Ledger.Snapshot s:data.snapshots)if(AccountCash.actual(s,a.id)&&(through==null||!s.at.isAfter(through))&&s.balances.containsKey(a.id)&&(latest==null||!s.at.isBefore(latest))){amount=s.balances.get(a.id);latest=s.at;}
         if(amount==null)return null;
-        boolean pending=false;for(LocalDateTime at:a.skippedCashObservations)if((latest==null?!at.isBefore(a.created):at.isAfter(latest))&&(through==null||!at.isAfter(through))){pending=true;break;}
-        // Hiding a generated observation must not undo its still-linked real transaction.
-        if(pending)for(AccountCash.Flow f:AccountCash.flows(data))if(f.accountId==a.id&&a.skippedCashObservations.contains(f.at)&&(latest==null?!f.at.isBefore(a.created):f.at.isAfter(latest))&&(through==null||!f.at.isAfter(through)))amount=Math.addExact(amount,f.delta);
+        // A genuine balance is post-transaction. An implicit legacy opening is pre-transaction.
+        for(AccountCash.Flow f:flows)if(f.accountId==a.id&&(latest==null?!f.at.isBefore(a.created):f.at.isAfter(latest))&&(through==null||!f.at.isAfter(through)))amount=Math.addExact(amount,f.delta);
         return amount;
     }
     private AccountRecords(){}

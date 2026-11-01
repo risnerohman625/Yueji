@@ -1,0 +1,4 @@
+Original sibling YuejiV4.7.11 retained at 68bede991d58c6a44373cd821806da023cf09ce5.
+Its tracked status still contains exactly the six inherited EOL-only files.
+Those six files are byte-identical in both siblings and excluded from this release commit.
+New build created only in YuejiV4.7.12. No phone data cleared.

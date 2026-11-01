@@ -39,7 +39,7 @@ final class MonthLedger {
         }
         Map<Long,TreeMap<LocalDateTime,Ledger.Snapshot>> records=new LinkedHashMap<>();Map<Long,Ledger.Snapshot> openings=new HashMap<>();
         for(Ledger.Account a:data.accounts)if(a.openingKnown&&a.created!=null){Ledger.Snapshot s=new Ledger.Snapshot(0,a.created,"");s.partial=true;s.balances.put(a.id,a.opening);openings.put(a.id,s);records.computeIfAbsent(a.id,k->new TreeMap<>()).put(a.created,s);}
-        for(Ledger.Snapshot s:data.snapshots)for(long id:s.balances.keySet())records.computeIfAbsent(id,k->new TreeMap<>()).put(s.at,s);
+        for(Ledger.Snapshot s:data.snapshots)for(long id:s.balances.keySet())if(AccountCash.actual(s,id))records.computeIfAbsent(id,k->new TreeMap<>()).put(s.at,s);
         List<AccountCash.Flow> flows=AccountCash.flows(data);Map<Long,Long> atBegin=new HashMap<>(),atEnd=new HashMap<>();
         for(AccountCash.Flow f:flows){if(f.at.equals(begin))atBegin.merge(f.accountId,f.delta,Math::addExact);if(f.at.equals(finish))atEnd.merge(f.accountId,f.delta,Math::addExact);}
         Map<Long,Window> windows=new LinkedHashMap<>();boolean baseline=true,closed=true;LocalDateTime previousBegin=month.minusMonths(1).atDay(1).atStartOfDay();

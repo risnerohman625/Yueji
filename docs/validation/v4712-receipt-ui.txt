@@ -1,0 +1,6 @@
+
+cn.yueji.balance.AccountCashUiTest:....
+
+Time: 16.781
+
+OK (4 tests)

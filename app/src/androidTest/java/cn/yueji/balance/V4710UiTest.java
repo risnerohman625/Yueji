@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class V4710UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;final V43UiTest h=old.h;
-    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",30).commit();}
+    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",31).commit();}
     @After public void after()throws Exception{old.after();}
     Ledger.Data sample(){Ledger.Data d=new Ledger.Data();d.settings.autoRefresh=false;Ledger.Account a=new Ledger.Account(1,"测试银行卡","银行");a.created=LocalDateTime.of(2026,9,30,12,0);a.opening=100000;d.accounts.add(a);return d;}
     void history(){t.ui(()->{t.app.accountId=1;t.app.go("account_history");});}

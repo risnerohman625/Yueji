@@ -44,7 +44,7 @@ final class FundTransactions {
             }
         }
         Ledger.FundBuy replacement=new Ledger.FundBuy();replacement.id=buyId==0?data.nextId():buyId;
-        replacement.amount=amount;replacement.fee=fee;replacement.at=at;
+        AccountCash.restore(data,"fund_buy:"+target.id+":"+replacement.id);replacement.amount=amount;replacement.fee=fee;replacement.at=at;
         replacement.accountFlowManaged=updateLink;
         replacement.buyAccountLinked=linkBuy;
         replacement.buyAccountId=linkBuy?buyAccountId:0;

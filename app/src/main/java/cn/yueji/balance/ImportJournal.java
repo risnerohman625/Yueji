@@ -186,9 +186,9 @@ final class ImportJournal {
         return "";
     }
     static Ledger.HistoryMonth month(Ledger.Data d,YearMonth month){for(Ledger.HistoryMonth h:d.history)if(h.month.equals(month))return h;return null;}
-    static boolean sameMonth(Ledger.HistoryMonth a,Ledger.HistoryMonth b){return a.expense==b.expense&&a.cutoff.equals(b.cutoff)&&a.includesAdvances==b.includesAdvances;}
-    static String monthJson(Ledger.HistoryMonth h){try{return new JSONObject().put("month",h.month).put("expense",h.expense).put("cutoff",h.cutoff).put("includesAdvances",h.includesAdvances).put("importId",h.importId).toString();}catch(JSONException e){throw new IllegalArgumentException(e);}}
-    static Ledger.HistoryMonth parseMonth(String json){try{JSONObject j=new JSONObject(json);Ledger.HistoryMonth h=new Ledger.HistoryMonth(YearMonth.parse(j.getString("month")),j.getLong("expense"),LocalDateTime.parse(j.getString("cutoff")));h.includesAdvances=j.getBoolean("includesAdvances");h.importId=j.optLong("importId");return h;}catch(JSONException e){throw new IllegalArgumentException(e);}}
+    static boolean sameMonth(Ledger.HistoryMonth a,Ledger.HistoryMonth b){return a.expense==b.expense&&a.cutoff.equals(b.cutoff)&&a.includesAdvances==b.includesAdvances&&a.fixedCutoff==b.fixedCutoff;}
+    static String monthJson(Ledger.HistoryMonth h){try{return new JSONObject().put("month",h.month).put("expense",h.expense).put("cutoff",h.cutoff).put("fixedCutoff",h.fixedCutoff).put("includesAdvances",h.includesAdvances).put("importId",h.importId).toString();}catch(JSONException e){throw new IllegalArgumentException(e);}}
+    static Ledger.HistoryMonth parseMonth(String json){try{JSONObject j=new JSONObject(json);Ledger.HistoryMonth h=new Ledger.HistoryMonth(YearMonth.parse(j.getString("month")),j.getLong("expense"),LocalDateTime.parse(j.getString("cutoff")));h.fixedCutoff=j.optBoolean("fixedCutoff");h.includesAdvances=j.getBoolean("includesAdvances");h.importId=j.optLong("importId");return h;}catch(JSONException e){throw new IllegalArgumentException(e);}}
     static String bankJson(BankLedger.Product p){try{return BankCodec.encode(p).toString();}catch(JSONException e){throw new IllegalArgumentException(e);}}
     static BankLedger.Product parseBank(String json){try{return BankCodec.decode(new JSONObject(json));}catch(JSONException e){throw new IllegalArgumentException(e);}}
     static JSONArray encode(Ledger.Data data)throws JSONException{

@@ -16,7 +16,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class AccountCashUiTest {
     final V43UiTest h=new V43UiTest();final YuejiTest t=h.t;
-    @Before public void before(){h.before();t.dir=new File(t.context.getExternalFilesDir(null),"qa-v466");t.dir.mkdirs();}
+    @Before public void before(){h.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",31).commit();t.dir=new File(t.context.getExternalFilesDir(null),"qa-v466");t.dir.mkdirs();}
     @After public void after()throws Exception{h.after();}
     Ledger.Data data(){
         Ledger.Data d=new Ledger.Data();d.settings.autoRefresh=false;
@@ -30,14 +30,14 @@ public class AccountCashUiTest {
     void date(String description,String value){MainActivity.DateControl at=(MainActivity.DateControl)h.desc(t.app.body,description+"日期").getTag();at.at=LocalDateTime.parse(value);at.update();}
     void amount(String value){((EditText)h.desc(t.app.body,"金额")).setText(value);}
     @Test public void newIncomeRequiresAccountThenUpdatesBalanceAndEditingRebuildsOnce(){
-        t.start(data());t.ui(()->{t.app.openEntry(Ledger.INCOME,null);amount("500");date("到账时间","2026-10-05T12:00");t.findText(t.app.body,"保存记录").performClick();});
-        assertTrue(t.device.wait(Until.hasObject(By.text("请选择关联账户")),4000));assertEquals(0,t.store.load().entries.size());tap("知道了");
-        t.ui(()->{((Spinner)h.desc(t.app.body,"到账账户（必选）")).setSelection(1);t.findText(t.app.body,"保存记录").performClick();});
-        Ledger.Data saved=t.store.load();assertEquals(150000,saved.balance(saved.accounts.get(0)));assertEquals(50000,Ledger.income(saved,2026));assertEquals(2,saved.snapshots.size());
+        t.start(data());t.ui(()->{t.app.openEntry(Ledger.INCOME,null);((CheckBox)h.desc(t.app.body,"是否计入账户收支")).setChecked(true);amount("500");date("到账时间","2026-10-05T12:00");t.findText(t.app.body,"保存记录").performClick();});
+        assertTrue(t.device.wait(Until.hasObject(By.textContains("必须选择账户")),4000));assertEquals(0,t.store.load().entries.size());tap("知道了");
+        t.ui(()->{((Spinner)h.desc(t.app.body,"账户（可选，勾选后必选）")).setSelection(1);t.findText(t.app.body,"保存记录").performClick();});
+        Ledger.Data saved=t.store.load();assertEquals(150000,saved.balance(saved.accounts.get(0)));assertEquals(50000,Ledger.income(saved,2026));assertEquals(1,saved.snapshots.size());
         Ledger.Entry income=saved.entries.get(0);assertTrue(income.cashLinked);assertEquals(LocalDateTime.parse("2026-10-05T12:00"),income.at);
         t.ui(()->{t.app.openEntry(Ledger.INCOME,t.app.data.entries.get(0));amount("600");t.findText(t.app.body,"保存记录").performClick();});
-        saved=t.store.load();assertEquals(160000,saved.balance(saved.accounts.get(0)));assertEquals(2,saved.snapshots.size());
-        t.ui(()->{t.app.accountId=1;t.app.go("account_history");});assertTrue(t.device.hasObject(By.text("收支 / 投资账户自动记账")));shot("v466-income-linked-account-history.png");
+        saved=t.store.load();assertEquals(160000,saved.balance(saved.accounts.get(0)));assertEquals(1,saved.snapshots.size());
+        t.ui(()->{t.app.accountId=1;t.app.go("account_history");});assertTrue(t.device.hasObject(By.text("+¥ 600.00")));shot("v466-income-linked-account-history.png");
     }
     @Test public void reimbursementAdvanceAndDifferentAccountReceiptAreSavedThroughUi()throws Exception{
         Ledger.Data initial=data();Ledger.Snapshot october=new Ledger.Snapshot(11,LocalDateTime.parse("2026-10-01T00:00"),"月初");october.balances.put(1L,50000L);october.balances.put(2L,200000L);initial.snapshots.add(october);
@@ -62,11 +62,11 @@ public class AccountCashUiTest {
     }
     @Test public void editingLegacyUnassignedIncomeDoesNotTouchBalances(){
         Ledger.Data d=data();Ledger.Entry e=new Ledger.Entry(20,true,10000,LocalDateTime.parse("2026-09-05T00:00"),"历史收入","",0);e.category="其他";d.entries.add(e);t.start(d);
-        t.ui(()->{t.app.openEntry(Ledger.INCOME,t.app.data.entries.get(0));assertNotNull(h.desc(t.app.body,"账户（可选）"));amount("200");t.findText(t.app.body,"保存记录").performClick();});
+        t.ui(()->{t.app.openEntry(Ledger.INCOME,t.app.data.entries.get(0));assertNotNull(h.desc(t.app.body,"账户（可选，勾选后必选）"));amount("200");t.findText(t.app.body,"保存记录").performClick();});
         Ledger.Data saved=t.store.load();assertEquals(1,saved.snapshots.size());assertEquals(300000,saved.total());assertFalse(saved.entries.get(0).cashLinked);assertEquals(0,saved.entries.get(0).accountId);
     }
     @Test public void deletingNewIncomeRemovesItsGeneratedObservation(){
-        t.start(data());t.ui(()->{t.app.openEntry(Ledger.INCOME,null);amount("300");date("到账时间","2026-09-05T12:00");((Spinner)h.desc(t.app.body,"到账账户（必选）")).setSelection(2);t.findText(t.app.body,"保存记录").performClick();});
+        t.start(data());t.ui(()->{t.app.openEntry(Ledger.INCOME,null);((CheckBox)h.desc(t.app.body,"是否计入账户收支")).setChecked(true);amount("300");date("到账时间","2026-09-05T12:00");((Spinner)h.desc(t.app.body,"账户（可选，勾选后必选）")).setSelection(2);t.findText(t.app.body,"保存记录").performClick();});
         assertEquals(330000,t.store.load().total());t.ui(()->t.app.openEntry(Ledger.INCOME,t.app.data.entries.get(0)));t.ui(()->t.findText(t.app.body,"删除记录").performClick());tap("删除");
         Ledger.Data saved=t.store.load();assertEquals(300000,saved.total());assertEquals(1,saved.snapshots.size());assertEquals(0,saved.entries.size());
     }
