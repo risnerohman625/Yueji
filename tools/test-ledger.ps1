@@ -1,3 +1,4 @@
+param([switch]$Generate)
 $ErrorActionPreference = 'Stop'
 $projectDir = Split-Path -Parent $PSScriptRoot
 $javaDir = 'D:\ProgramData\Android\AndroidStudio\jbr\bin'
@@ -49,6 +50,10 @@ $argumentFile=Join-Path $compiledDir 'javac.args'
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $resourcesDir = Join-Path $projectDir 'app\src\test\resources'
 if (Test-Path -LiteralPath $resourcesDir) { Get-ChildItem -LiteralPath $resourcesDir | Copy-Item -Destination $compiledDir -Recurse -Force }
+if ($Generate) {
+    & "$javaDir\java.exe" '-Dfile.encoding=UTF-8' -cp "$compiledDir;$jsonJar;$androidJar" cn.yueji.balance.GenerateDataFiles (Join-Path $projectDir 'docs')
+    exit $LASTEXITCODE
+}
 $classes = $testFiles | ForEach-Object { "cn.yueji.balance.$($_.BaseName)" }
 & "$javaDir\java.exe" '-Dfile.encoding=UTF-8' '-Dstdout.encoding=UTF-8' '-Dstderr.encoding=UTF-8' -cp "$compiledDir;$jsonJar;$androidJar;$junitJar;$hamcrestJar" org.junit.runner.JUnitCore @classes
 exit $LASTEXITCODE

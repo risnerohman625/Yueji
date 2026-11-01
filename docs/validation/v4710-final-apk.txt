@@ -1,0 +1,5 @@
+APK SHA256: 273e53d4a7857b08024b2e70a362bbb6bcb289125bd0a936b538a14854baf255
+Size: 1787062 bytes
+Matches existing upgrade signing certificate: yes
+No bundled ledger databases, signing private keys or new test classes.
+Assets: assets/holidays/2010.json, assets/holidays/2011.json, assets/holidays/2012.json, assets/holidays/2013.json, assets/holidays/2014.json, assets/holidays/2015.json, assets/holidays/2016.json, assets/holidays/2017.json, assets/holidays/2018.json, assets/holidays/2019.json, assets/holidays/2020.json, assets/holidays/2021.json, assets/holidays/2022.json, assets/holidays/2023.json, assets/holidays/2024.json, assets/holidays/2025.json, assets/holidays/2026.json

@@ -94,7 +94,9 @@ final class MonthLedger {
         if(at==null||at.getYear()<2000||at.isAfter(LocalDateTime.now())||balance<0||balance>Ledger.MAX_MONEY)throw new IllegalArgumentException("余额或更新时间无效");
         Ledger.Snapshot target=null;for(Ledger.Snapshot s:data.snapshots)if(s.at.equals(at))target=s;
         if(target==null){target=new Ledger.Snapshot(data.nextId(),at,"");target.partial=true;data.snapshots.add(target);}
-        target.balances.put(accountId,balance);Ledger.pullAccountsBack(data,target);data.sort();
+        target.balances.put(accountId,balance);LocalDateTime before=account.created;Ledger.pullAccountsBack(data,target);
+        if(account.created.equals(at)&&account.openingKnown)account.opening=balance;
+        if(!Objects.equals(before,account.created)){account.openingKnown=true;AccountRecords.sparseBefore(data,account);}data.sort();
         AccountCash.makeManual(data,accountId,at);
     }
     private MonthLedger(){}

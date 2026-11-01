@@ -52,8 +52,8 @@ public class LedgerTest {
     @Test public void leapYearAndYearTransition() {
         Ledger.Data d=data();snapshot(d,"2024-02-01T00:00",10000);snapshot(d,"2024-03-01T00:00",7100);Ledger.Report r=Ledger.month(d,YearMonth.of(2024,2));assertEquals(29,r.days);assertEquals(10000,r.daily());snapshot(d,"2025-01-01T00:00",5000);snapshot(d,"2025-02-01T00:00",1900);assertEquals(31,Ledger.month(d,YearMonth.of(2025,1)).days);
     }
-    @Test public void firstOfMonthRequiresMidnightWhile15thAllowsExtraChecks() {
-        Ledger.Data d=data();snapshot(d,"2026-10-01T09:00",10000);snapshot(d,"2026-10-15T20:00",9000);assertEquals(1,Ledger.missingNodes(d,LocalDate.of(2026,10,19)).size());assertEquals(LocalDate.of(2026,10,1),Ledger.missingNodes(d,LocalDate.of(2026,10,19)).get(0));
+    @Test public void arbitraryObservationDatesCalculateWithoutFixedNodes() {
+        Ledger.Data d=data();snapshot(d,"2026-10-01T09:00",10000);snapshot(d,"2026-10-15T20:00",9000);assertEquals(100000,Ledger.month(d,YearMonth.of(2026,10)).expense);
     }
     @Test public void moneyPreservesCents() {assertEquals(1001,Ledger.parseMoney("10.01",true));assertEquals("10.01",Ledger.decimal(1001));assertEquals(0,Ledger.parseMoney("0",false));}
     @Test(expected=IllegalArgumentException.class) public void moneyRejectsThirdDecimal() {Ledger.parseMoney("10.001",false);}
@@ -151,9 +151,9 @@ public class LedgerTest {
         Ledger.Data d=data();YearMonth now=YearMonth.now();fullMonth(d,now.toString(),1234);
         Ledger.Report r=Ledger.month(d,now);assertTrue(r.usable());assertFalse(r.closed);assertEquals(123400,r.expense);assertEquals(LocalDate.now().getDayOfMonth(),r.days);assertTrue(r.hasDaily());
     }
-    @Test public void bridgedMonthDoesNotHideMissingCheckNodes(){
+    @Test public void bridgedMonthDoesNotRequireFixedCheckDates(){
         Ledger.Data d=data();fullMonth(d,"2026-10",2000);snapshot(d,"2026-10-03T10:00",10000);
-        assertEquals(java.util.Collections.singletonList(LocalDate.of(2026,10,15)),Ledger.missingNodes(d,LocalDate.of(2026,10,19)));
+        assertTrue(Ledger.month(d,YearMonth.of(2026,10)).usable());
     }
     @Test public void legacyBridgeWithExplicitCutoffStillWorks(){
         Ledger.Data d=data();snapshot(d,"2026-10-05T12:00",9000);snapshot(d,"2026-10-19T12:00",10000);snapshot(d,"2026-10-20T12:00",9500);

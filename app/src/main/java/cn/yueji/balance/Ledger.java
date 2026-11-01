@@ -14,6 +14,8 @@ public final class Ledger {
  public static final Set<String> ICON_SET=new LinkedHashSet<>(Arrays.asList(ICONS));
  public static final class Account {
   public long id,opening; public String name,type; public LocalDateTime created;
+  public boolean openingKnown=true;
+  public final Set<LocalDateTime> skippedCashObservations=new LinkedHashSet<>();
   public LocalDateTime deletedAt;
   public Account(long id,String name,String type){this.id=id;this.name=name;this.type=type;}
  }
@@ -119,8 +121,7 @@ public final class Ledger {
   public WatchFund(String code,String name){this.code=code;this.name=name;}
  }
  public static final class Settings {
-  public int checkDay1=1,checkDay2=15,reminderHour=9;
-  public boolean checkNotifications=true,fundNotifications=true,autoRefresh=true,appLockEnabled=false;
+  public boolean fundNotifications=true,autoRefresh=true,appLockEnabled=false;
   public boolean lossOnly=true;
   public int refreshMinutes=120;
  }
@@ -148,7 +149,7 @@ public final class Ledger {
   public void sort(){snapshots.sort(Comparator.comparing(s->s.at));entries.sort(Comparator.comparing((Entry e)->e.at).reversed());}
   public Snapshot latest(){return snapshots.isEmpty()?null:snapshots.get(snapshots.size()-1);}
   public String accountName(long id){for(Account a:accounts)if(a.id==id)return a.name;return "未指定账户";}
-  public long balance(Account a){for(int i=snapshots.size()-1;i>=0;i--){Long v=snapshots.get(i).balances.get(a.id);if(v!=null)return v;}return a.opening;}
+  public long balance(Account a){Long value=AccountRecords.balanceAt(this,a,null);return value==null?0:value;}
   public long total(){long v=0;for(Account a:accounts)if(a.deletedAt==null)v=Math.addExact(v,balance(a));return v;}
   public List<Account> activeAccounts(){List<Account> list=new ArrayList<>();for(Account a:accounts)if(a.deletedAt==null)list.add(a);return list;}
   public long nextId(){long n=System.currentTimeMillis();for(FundOrder order:fundOrders)n=Math.max(n,order.id+1);for(DebtLedger.Loan loan:debts){n=Math.max(n,loan.id+1);for(DebtLedger.Payment p:loan.payments)n=Math.max(n,p.id+1);}for(ImportJournal.Batch b:imports)n=Math.max(n,b.id+1);for(Account a:accounts)n=Math.max(n,a.id+1);for(Snapshot s:snapshots)n=Math.max(n,s.id+1);for(Entry e:entries)n=Math.max(n,e.id+1);for(WatchGroup g:watchGroups)n=Math.max(n,g.id+1);for(Fund f:funds){n=Math.max(n,f.id+1);for(FundBuy b:f.buys)n=Math.max(n,b.id+1);for(RecurringRecord r:f.plan.records)n=Math.max(n,r.id+1);}for(BankLedger.Product p:banks){n=Math.max(n,p.id+1);for(BankLedger.Observation o:p.observations)n=Math.max(n,o.id+1);for(BankLedger.Event e:p.events)n=Math.max(n,e.id+1);}return n;}
@@ -214,7 +215,7 @@ public final class Ledger {
  }
  /** An account first counted by a check dated before it was added starts at that check, with that balance as its baseline. */
  public static void pullAccountsBack(Data d,Snapshot s){
-  for(Account a:d.accounts){Long v=s.balances.get(a.id);if(v!=null&&(a.created==null||s.at.isBefore(a.created))){a.created=s.at;a.opening=v;}}
+  for(Account a:d.accounts){Long v=s.balances.get(a.id);if(v!=null&&(a.created==null||s.at.isBefore(a.created))){a.created=s.at;a.opening=v;a.openingKnown=true;AccountRecords.sparseBefore(d,a);}}
  }
  public static Report month(Data d,YearMonth ym){
   return MonthLedger.calculate(d,ym).report;
@@ -234,7 +235,5 @@ public final class Ledger {
  }
  public static long income(Data d,YearMonth ym){long v=0;for(Entry e:d.entries)if(INCOME.equals(e.kind)&&YearMonth.from(e.at).equals(ym))v+=e.amount;return v;}
  public static Long yearExpense(Data d,int y){long v=0;boolean found=false;for(int m=1;m<=12;m++){Report r=month(d,YearMonth.of(y,m));if(r.usable()){v=Math.addExact(v,r.expense);found=true;}}return found?v:null;}
- public static List<LocalDate> missingNodes(Data d,LocalDate today){List<LocalDate> list=new ArrayList<>();if(d.snapshots.isEmpty())return list;for(LocalDate day=d.snapshots.get(0).at.toLocalDate();!day.isAfter(today);day=day.plusDays(1)){if(day.getDayOfMonth()!=Math.min(d.settings.checkDay1,day.lengthOfMonth())&&day.getDayOfMonth()!=Math.min(d.settings.checkDay2,day.lengthOfMonth()))continue;boolean found=false;for(Snapshot s:d.snapshots)if(s.at.toLocalDate().equals(day)&&(day.getDayOfMonth()!=1||s.isMonthStart())){found=true;break;}for(HistoryMonth h:d.history)if(h.month.equals(YearMonth.from(day))&&!historyCutoff(d,h).isBefore(day.atStartOfDay()))found=true;if(!found)list.add(day);}return list;}
- public static LocalDate nextNode(LocalDate t){return t.getDayOfMonth()<15?t.withDayOfMonth(15):t.withDayOfMonth(1).plusMonths(1);}
  private Ledger(){}
 }

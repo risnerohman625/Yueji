@@ -1,0 +1,10 @@
+Version 4.7.10 / versionCode 29 / cn.yueji.balance
+JVM: OK (369 tests).
+Device: OK (93 tests), emulator-5554 only; each fixture restores the prior ledger.
+Build: assembleDebug, assembleDebugAndroidTest, lintDebug passed; 0 lint errors, 87 warnings.
+UI: real swipe edit/delete, shared-account isolation, scroll acknowledgment and recreation, outside/back popup dismissal, dark theme, screen/font matrix.
+Matrix: 1080x1920/420dpi, 1080x2400/420dpi, 1260x2800/480dpi, 1260x2800/560dpi, 1080x1920 font_scale=1.3.
+Manual image inspection: initial swipe; normal/dark/large-font anchored tooltip.
+APK and SHA256 committed as a pair; same public signing certificate as 4.7.9, no bundled user ledger or new test classes.
+Original 4.7.9 preserved; inherited six line-ending changes excluded from this commit.
+JSON format 15 reads 1-15. XLSX and SQLite schema 4 unchanged.

@@ -46,10 +46,7 @@ final class AssetHistory {
         long total=0;
         for(Ledger.Account a:data.accounts){
             if(a.created!=null&&a.created.isAfter(time)||a.deletedAt!=null&&!a.deletedAt.isAfter(time))continue;
-            long balance=a.opening;LocalDateTime last=null;long lastId=Long.MIN_VALUE;
-            for(Ledger.Snapshot s:data.snapshots)if(!s.at.isAfter(time)&&s.balances.containsKey(a.id)&&(last==null||s.at.isAfter(last)||s.at.equals(last)&&s.id>=lastId)){
-                balance=s.balances.get(a.id);last=s.at;lastId=s.id;
-            }
+            Long balance=AccountRecords.balanceAt(data,a,time);if(balance==null)return null;
             total=Math.addExact(total,balance);
         }
         for(Ledger.Fund f:data.funds)if(!f.hidden&&(f.removedAt==null||time.isBefore(f.removedAt))){

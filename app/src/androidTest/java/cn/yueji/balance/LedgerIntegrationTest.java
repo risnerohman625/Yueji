@@ -79,8 +79,8 @@ public class LedgerIntegrationTest {
         assertTrue(b.units.signum()>0);assertEquals(LocalDate.of(2020,1,10),b.tradeDate);assertEquals(LocalDate.of(2020,1,13),b.confirmDate);Ledger.Data d=base();d.funds.add(f);store.save(d);assertEquals(b.units,store.load().funds.get(0).buys.get(0).units);
     }
     @Test public void customNodesAndReceiptAccountsSurviveBackup(){
-        Ledger.Data d=base();d.settings.checkDay1=10;d.settings.checkDay2=31;
-        Ledger.Entry e=new Ledger.Entry(3,false,10000,LocalDateTime.parse("2026-09-10T12:00"),"差旅","",0);e.kind=Ledger.REIMBURSE;Ledger.Receipt r=new Ledger.Receipt(10000,LocalDateTime.parse("2026-10-19T12:00"));r.accountId=1;e.receipts.add(r);e.status="已报销";d.entries.add(e);store.save(d);Ledger.Data copy=store.parseBackup(store.exportJson());assertEquals(31,copy.settings.checkDay2);assertEquals(1,copy.entries.get(0).receipts.get(0).accountId);
+        Ledger.Data d=base();
+        Ledger.Entry e=new Ledger.Entry(3,false,10000,LocalDateTime.parse("2026-09-10T12:00"),"差旅","",0);e.kind=Ledger.REIMBURSE;Ledger.Receipt r=new Ledger.Receipt(10000,LocalDateTime.parse("2026-10-19T12:00"));r.accountId=1;e.receipts.add(r);e.status="已报销";d.entries.add(e);store.save(d);Ledger.Data copy=store.parseBackup(store.exportJson());assertEquals(1,copy.entries.get(0).receipts.get(0).accountId);
     }
     @Test public void chosenIconsAndCategoryOrderSurviveDatabaseAndBackup(){
         Ledger.Data d=base();java.util.Collections.swap(d.categories,0,2);

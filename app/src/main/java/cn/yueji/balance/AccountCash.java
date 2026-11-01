@@ -34,7 +34,7 @@ final class AccountCash {
     static Ledger.Account requireAccount(Ledger.Data data,long id,LocalDateTime at){
         Ledger.Account found=null;for(Ledger.Account a:data.accounts)if(a.id==id)found=a;
         if(found==null)throw new IllegalArgumentException("请选择关联账户");
-        if(at==null||found.created==null||at.isBefore(found.created))throw new IllegalArgumentException("记录早于「"+found.name+"」的开户余额，请先补录该账户在发生时间之前的余额");
+        if(at==null||found.created==null||at.isBefore(found.created))throw new IllegalArgumentException("记录早于「"+found.name+"」的启用时间，请先在编辑账户中核对启用时间和初始余额");
         if(found.deletedAt!=null&&!at.isBefore(found.deletedAt))throw new IllegalArgumentException("记录时此账户已删除，请选择有效账户");
         return found;
     }
@@ -54,7 +54,7 @@ final class AccountCash {
         SortedMap<LocalDateTime,List<Flow>> groups=new TreeMap<>();
         for(Flow f:flows)groups.computeIfAbsent(f.at,k->new ArrayList<>()).add(f);
         SortedSet<LocalDateTime> times=new TreeSet<>(manual.keySet());times.addAll(groups.keySet());
-        Map<Long,Long> state=new HashMap<>();for(Ledger.Account a:data.accounts)state.put(a.id,a.opening);
+        Map<Long,Long> state=new HashMap<>();for(Ledger.Account a:data.accounts)if(a.openingKnown)state.put(a.id,a.opening);
         for(LocalDateTime at:times){
             Ledger.Snapshot s=manual.get(at);Set<Long> observed=s==null?Collections.emptySet():new HashSet<>(s.balances.keySet());
             if(s!=null)state.putAll(s.balances);
@@ -62,8 +62,11 @@ final class AccountCash {
             Map<Long,Long> deltas=new LinkedHashMap<>();for(Flow f:events)deltas.merge(f.accountId,f.delta,Math::addExact);
             for(Map.Entry<Long,Long> event:deltas.entrySet()){
                 long account=event.getKey();if(observed.contains(account))continue;
+                if(!state.containsKey(account))continue;
                 long amount=Math.addExact(state.get(account),event.getValue());
                 if(amount<0||amount>Ledger.MAX_MONEY)throw new IllegalArgumentException("自动记账后「"+data.accountName(account)+"」余额超出范围，请核对垫付金额或先补录实际余额");
+                state.put(account,amount);
+                if(AccountRecords.account(data,account).skippedCashObservations.contains(at))continue;
                 if(s==null){
                     s=new Ledger.Snapshot(oldIds.containsKey(at)?oldIds.get(at):next++,at,"收支 / 投资账户自动记账");
                     s.partial=true;s.cashGenerated=true;data.snapshots.add(s);

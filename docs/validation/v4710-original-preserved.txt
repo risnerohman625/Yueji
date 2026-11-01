@@ -1,0 +1,14 @@
+Original version integrity check
+Source: E:\Projects\记账软件\YuejiV4.7.9
+Original HEAD: 321ba8747b1534ee30ec613c3a78037acd47f2a4
+Full sibling copy: 18,980 files; 14,835 directories; robocopy failed=0.
+Original working tree retains exactly the six inherited line-ending changes.
+
+app/src/main/res/drawable/ic_stat.xml SHA256 2586e7e12405ff76fa80dfeb3734aa505d2ce5c61759e25934de7a78a1c87e89
+app/src/main/res/drawable/ic_stat_bloom.xml SHA256 2586e7e12405ff76fa80dfeb3734aa505d2ce5c61759e25934de7a78a1c87e89
+app/src/main/res/drawable/ic_stat_classic.xml SHA256 e47a53b280f73fecbc9c1e848545af65c3463475811fc4ac4351a8ef813dca3e
+app/src/main/res/drawable/ic_stat_moon.xml SHA256 b39fd0326e0b736d1bf4879b135d5215875cd96632431d9fe6383b96567fa01e
+app/src/main/res/drawable/ic_stat_petals.xml SHA256 2586e7e12405ff76fa80dfeb3734aa505d2ce5c61759e25934de7a78a1c87e89
+gradlew.bat SHA256 fedad02c18e266ec094995a5751b7fe1eb6e74f66bf75db64fae2e50eb22c234
+Previous artifact Yueji-4.7.9-debug.apk preserved SHA256 e89f12f1fd7efd636f9d167755f021dfd21eecbd0647ac0c0cadb36a43f38379
+Previous artifact Yueji-4.7.9-debug.apk.sha256 preserved SHA256 816d85f224a37a338c79ef16e6371d603a423eaf6b49512d13ee81010781012a
