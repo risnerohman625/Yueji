@@ -1,0 +1,12 @@
+Original 4.7.10 preserved.
+Original HEAD: 0a77c466d8331ca5053532a01a445bb369970471
+Full sibling copy: 19,355 files; 14,947 directories; robocopy failures=0.
+Exactly the six inherited EOL changes remain in the original and are excluded from this release.
+app/src/main/res/drawable/ic_stat.xml SHA256 2586e7e12405ff76fa80dfeb3734aa505d2ce5c61759e25934de7a78a1c87e89
+app/src/main/res/drawable/ic_stat_bloom.xml SHA256 2586e7e12405ff76fa80dfeb3734aa505d2ce5c61759e25934de7a78a1c87e89
+app/src/main/res/drawable/ic_stat_classic.xml SHA256 e47a53b280f73fecbc9c1e848545af65c3463475811fc4ac4351a8ef813dca3e
+app/src/main/res/drawable/ic_stat_moon.xml SHA256 b39fd0326e0b736d1bf4879b135d5215875cd96632431d9fe6383b96567fa01e
+app/src/main/res/drawable/ic_stat_petals.xml SHA256 2586e7e12405ff76fa80dfeb3734aa505d2ce5c61759e25934de7a78a1c87e89
+gradlew.bat SHA256 fedad02c18e266ec094995a5751b7fe1eb6e74f66bf75db64fae2e50eb22c234
+dist/Yueji-4.7.10-debug.apk SHA256 273e53d4a7857b08024b2e70a362bbb6bcb289125bd0a936b538a14854baf255
+dist/Yueji-4.7.10-debug.apk.sha256 SHA256 b370750a545d71a74a2034598cffd38a8ed674b79b4765217a7fb2ff782a14d5

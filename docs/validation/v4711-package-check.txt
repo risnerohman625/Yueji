@@ -1,0 +1,27 @@
+package: name='cn.yueji.balance' versionCode='30' versionName='4.7.11' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+sdkVersion:'26'
+targetSdkVersion:'36'
+uses-permission: name='android.permission.POST_NOTIFICATIONS'
+uses-permission: name='android.permission.RECEIVE_BOOT_COMPLETED'
+uses-permission: name='android.permission.INTERNET'
+uses-permission: name='android.permission.ACCESS_NETWORK_STATE'
+uses-permission: name='android.permission.USE_BIOMETRIC'
+uses-permission: name='android.permission.USE_FINGERPRINT' maxSdkVersion='28'
+uses-permission: name='android.permission.REQUEST_INSTALL_PACKAGES'
+application-label:'Yueji'
+application-icon-160:'res/mipmap-anydpi-v26/icon_yueji_two_petals.xml'
+application-icon-65534:'res/mipmap-anydpi-v26/icon_yueji_two_petals.xml'
+application-icon-65535:'res/mipmap-anydpi-v26/icon_yueji_two_petals.xml'
+application: label='Yueji' icon='res/mipmap-anydpi-v26/icon_yueji_two_petals.xml'
+application-debuggable
+feature-group: label=''
+  uses-feature: name='android.hardware.faketouch'
+  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'
+main
+other-activities
+other-receivers
+other-services
+supports-screens: 'small' 'normal' 'large' 'xlarge'
+supports-any-density: 'true'
+locales: '--_--'
+densities: '160' '65534' '65535'

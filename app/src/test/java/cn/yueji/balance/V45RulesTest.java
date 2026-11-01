@@ -70,9 +70,9 @@ public class V45RulesTest {
         Ledger.Data d=new Ledger.Data();YearMonth now=YearMonth.now();
         for(int i=0;i<3;i++){
             Ledger.Snapshot s=new Ledger.Snapshot(i+1,now.atDay(i+1).atStartOfDay(),"");
-            s.balances.put(1L,i==0?100000L:i==1?120000L:90000L);d.snapshots.add(s);
+            s.balances.put(1L,i==0?100000L:i==1?120000L:110000L);d.snapshots.add(s);
         }
-        Ledger.Report report=Ledger.month(d,now);assertTrue(report.hasData());assertTrue(report.anomaly);assertEquals(10000,report.expense);
+        Ledger.Report report=Ledger.month(d,now);assertTrue(report.hasData());assertTrue(report.anomaly);assertEquals(-10000,report.expense);
         assertFalse(report.usable());assertNull(Ledger.yearExpense(d,now.getYear()));
         assertFalse(Ledger.month(d,now.minusMonths(1)).hasData());
     }

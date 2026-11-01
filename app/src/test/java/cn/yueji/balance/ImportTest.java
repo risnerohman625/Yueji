@@ -143,7 +143,7 @@ public class ImportTest {
         byte[] file=HistoryImport.exportXlsx(d,LocalDate.of(2025,1,1),LocalDate.of(2025,12,31),true,true,true);
         Ledger.Data back=data();HistoryImport.importInto(back,file);
         assertEquals(2,back.entries.size());assertEquals(2,back.entries.get(1).receipts.size());assertEquals(e.title,back.entries.get(0).title);assertEquals(e.note,back.entries.get(0).note);
-        assertEquals(2,HistoryImport.importInto(back,file).skipped);
+        assertEquals(3,HistoryImport.importInto(back,file).skipped);assertTrue(back.history.isEmpty());
     }
     @Test public void exportRespectsDateEdgesAndKindSelection(){
         Ledger.Data d=data();HistoryImport.importInto(d,HistoryImport.templateXlsx());
@@ -171,7 +171,7 @@ public class ImportTest {
         rejects("避免重复累计",()->HistoryImport.importInto(d,file));assertEquals(10000,d.history.get(0).expense);
     }
     @Test public void snapshotOnlyPartialMonthExportAlsoReimportsWithoutDoubleCounting(){
-        Ledger.Data d=data();Ledger.Snapshot a=new Ledger.Snapshot(10,LocalDateTime.of(2025,1,15,12,0),"");a.balances.put(1L,100000L);d.snapshots.add(a);
+        Ledger.Data d=data();d.accounts.get(0).openingKnown=false;Ledger.Snapshot a=new Ledger.Snapshot(10,LocalDateTime.of(2025,1,15,12,0),"");a.balances.put(1L,100000L);d.snapshots.add(a);
         Ledger.Snapshot b=new Ledger.Snapshot(11,LocalDateTime.of(2025,1,20,12,0),"");b.balances.put(1L,98000L);d.snapshots.add(b);
         byte[] file=HistoryImport.exportXlsx(d,LocalDate.of(2025,1,1),LocalDate.of(2025,1,31),true,false,false);
         assertEquals(1,HistoryImport.importInto(d,file).skipped);assertTrue(d.history.isEmpty());assertEquals(2000,Ledger.month(d,YearMonth.of(2025,1)).expense);

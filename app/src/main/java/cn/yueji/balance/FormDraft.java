@@ -14,6 +14,7 @@ final class FormDraft {
         String key=v.getContentDescription()==null?null:v.getContentDescription().toString();
         if(key!=null){
             if(v instanceof EditText)values.putString("text:"+key,((EditText)v).getText().toString());
+            else if(v instanceof CompoundButton)values.putBoolean("checked:"+key,((CompoundButton)v).isChecked());
             else if(v instanceof Spinner){Object item=((Spinner)v).getSelectedItem();if(item!=null)values.putString("choice:"+key,item.toString());}
             else if(v.getTag() instanceof MainActivity.DateControl)values.putString("date:"+key,((MainActivity.DateControl)v.getTag()).at.toString());
         }
@@ -23,6 +24,7 @@ final class FormDraft {
         String key=v.getContentDescription()==null?null:v.getContentDescription().toString();
         if(key!=null){
             if(v instanceof EditText&&values.containsKey("text:"+key))((EditText)v).setText(values.getString("text:"+key));
+            else if(v instanceof CompoundButton&&values.containsKey("checked:"+key))((CompoundButton)v).setChecked(values.getBoolean("checked:"+key));
             else if(v instanceof Spinner&&values.containsKey("choice:"+key)){
                 Spinner s=(Spinner)v;String value=values.getString("choice:"+key);for(int i=0;i<s.getCount();i++)if(value.equals(s.getItemAtPosition(i).toString())){s.setSelection(i);break;}
             }else if(v.getTag() instanceof MainActivity.DateControl&&values.containsKey("date:"+key)){

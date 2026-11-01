@@ -1,0 +1,8 @@
+Version4.7.11 / build30 / cn.yueji.balance
+JVM: OK (412 tests). Device: OK (108 tests), emulator-5554 only.
+Build: assembleDebug, assembleDebugAndroidTest, lintDebug successful; 0 lint errors,87 warnings.
+Coverage: transfer paired balances/edit/delete/atomic rejection; optional income/expense account opt-in; per-account notes; nearest real forward/reverse inference; midnight calendar attribution; prior-month first interval; missing accounts and month gaps; legacy implicit opening same-time cash compatibility; JSON16/Android string map keys.
+UI: transfer/update buttons below account name; checkbox above save; source notes and explanatory popups; activity recreation and dark/large-font short-screen layouts. Existing screen matrix includes1080x1920,1080x2400,1260x2800(480/560dpi),font_scale1.3.
+Manual QA screenshots: new history actions, dark transfer dialog, opt-in form, nearest historical source row.
+Package checked: same upgrade certificate as4.7.10, no bundled test ledger/new test classes. SQLite4 and XLSX unchanged; JSON16 reads1-16.
+Original full folder and APK preserved. Inherited six EOL changes are not committed.

@@ -46,7 +46,7 @@ final class AssetPanels {
         TextView text=m.fit(m.text(value,13,color,true),13,9);text.setGravity(Gravity.END);m.weight(row,text);parent.addView(row,new LinearLayout.LayoutParams(-1,m.dp(27)));
     }
     LinearLayout trend(){
-        LinearLayout card=panel(),head=m.row();TextView caption=m.text("资产变动",14,Ui.INK,true);m.weight(head,caption);
+        LinearLayout card=panel(),head=m.row();TextView caption=m.text("资产变动",14,Ui.INK,true);head.addView(caption);head.addView(InlineHelp.icon(m,"资产变动趋势","按更新时间绘图会包含收支补录的推算余额，中间折线不一定准确，只能参考。\n真实余额不会被推算改写；月度金额按账户起止余额单独核算，缺少月末实测时仍可能有归属误差。"));m.weight(head,new android.view.View(m));
         String[] modes={"更新时间","按月","按年"};TextView period=m.action(modes[m.assetPeriod]+" ▾",()->{});period.setContentDescription("资产趋势时间粒度");
         period.setOnClickListener(v->{
             PopupMenu menu=new PopupMenu(m,period);for(int i=0;i<modes.length;i++)menu.getMenu().add(0,i,i,modes[i]);

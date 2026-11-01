@@ -7,9 +7,11 @@ import android.widget.*;
 
 /** Small anchored explanations, reserved for easily misunderstood bookkeeping rules. */
 final class InlineHelp {
+    static final String CASH_POLICY="勾选：必选账户，收入加余额、支出减余额，并留来源。\n不勾选：仅存明细，不自动改余额；收入仍参与统计和支出修正。\n补录就近参考真实余额，后续实测逆推；大宗支出不重复叠加。";
     static String forTitle(String title){
         switch(title){
-            case "大宗支出明细":return "仅记录、分类展示支出明细。\n不扣减账户余额，也不额外计入月支出；消费已体现在真实余额变化中。";
+            case "大宗支出明细":return CASH_POLICY;
+            case "收入明细":case "全部收入":return CASH_POLICY;
             case "报销明细":return "垫付不算个人消费，到账不算普通收入。\n关联账户后自动记录资金变化；分次到账按实际日期填写。";
             case "负债":return "负债与还款仅作独立台账。\n不会自动改变账户余额、总资产或收支，请另行核对实际资金。";
             case "自选基金":return "自选仅用于观察行情，不代表实际持仓。\n删除自选不删除已购基金；历史不足或费用未知，不代表零风险、零费用。";

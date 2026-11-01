@@ -41,13 +41,13 @@ public class LedgerTest {
     @Test public void missingMonthStartNeverInventsDailyAverage() {
         Ledger.Data d=data();snapshot(d,"2026-10-08T18:00",10000);snapshot(d,"2026-10-15T20:00",9000);Ledger.Report r=Ledger.month(d,YearMonth.of(2026,10));assertTrue(r.usable());assertFalse(r.baseline);assertFalse(r.hasDaily());assertEquals(100000,r.expense);
     }
-    @Test public void missingBoundaryDoesNotAllocateAcrossMonths() {
+    @Test public void previousMonthsLastRecordBridgesTheFirstCurrentRecord() {
         Ledger.Data d=data();snapshot(d,"2026-09-15T20:00",10000);snapshot(d,"2026-10-15T20:00",8000);
         assertEquals(0,Ledger.month(d,YearMonth.of(2026,9)).expense);assertTrue(Ledger.month(d,YearMonth.of(2026,9)).hasData());
-        assertEquals(0,Ledger.month(d,YearMonth.of(2026,10)).expense);assertFalse(Ledger.month(d,YearMonth.of(2026,10)).hasDaily());
+        assertEquals(200000,Ledger.month(d,YearMonth.of(2026,10)).expense);assertTrue(Ledger.month(d,YearMonth.of(2026,10)).boundaryWarning);assertFalse(Ledger.month(d,YearMonth.of(2026,10)).closed);
     }
-    @Test public void negativeIntervalFlagsMissingIncomeEvenWhenMonthlySumPositive() {
-        Ledger.Data d=data();snapshot(d,"2026-10-01T00:00",10000);snapshot(d,"2026-10-08T18:00",11000);snapshot(d,"2026-10-15T20:00",8000);Ledger.Report r=Ledger.month(d,YearMonth.of(2026,10));assertTrue(r.anomaly);assertFalse(r.usable());income(d,"2026-10-06T12:00",2000);assertFalse(Ledger.month(d,YearMonth.of(2026,10)).anomaly);assertEquals(400000,Ledger.month(d,YearMonth.of(2026,10)).expense);
+    @Test public void intermediateRiseDoesNotInvalidatePositiveEndpointExpense() {
+        Ledger.Data d=data();snapshot(d,"2026-10-01T00:00",10000);snapshot(d,"2026-10-08T18:00",11000);snapshot(d,"2026-10-15T20:00",8000);Ledger.Report r=Ledger.month(d,YearMonth.of(2026,10));assertFalse(r.anomaly);assertTrue(r.usable());assertEquals(200000,r.expense);income(d,"2026-10-06T12:00",2000);assertFalse(Ledger.month(d,YearMonth.of(2026,10)).anomaly);assertEquals(400000,Ledger.month(d,YearMonth.of(2026,10)).expense);
     }
     @Test public void leapYearAndYearTransition() {
         Ledger.Data d=data();snapshot(d,"2024-02-01T00:00",10000);snapshot(d,"2024-03-01T00:00",7100);Ledger.Report r=Ledger.month(d,YearMonth.of(2024,2));assertEquals(29,r.days);assertEquals(10000,r.daily());snapshot(d,"2025-01-01T00:00",5000);snapshot(d,"2025-02-01T00:00",1900);assertEquals(31,Ledger.month(d,YearMonth.of(2025,1)).days);

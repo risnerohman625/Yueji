@@ -25,6 +25,7 @@ public final class Ledger {
   public final Set<Long> cashAccounts=new LinkedHashSet<>();
   public long id; public LocalDateTime at; public String note;
   public final Map<Long,Long> balances=new LinkedHashMap<>();
+  public final Map<Long,String> notes=new LinkedHashMap<>(),sources=new LinkedHashMap<>();
   public Snapshot(long id,LocalDateTime at,String note){this.id=id;this.at=at;this.note=note;}
   public long total(){long v=0;for(long b:balances.values())v=Math.addExact(v,b);return v;}
   public boolean isMonthStart(){return at.getDayOfMonth()==1&&at.toLocalTime().equals(LocalTime.MIDNIGHT);}
@@ -32,6 +33,7 @@ public final class Ledger {
  public static final class Entry {
   public long id,amount,accountId,received; public boolean income;
   public boolean cashLinked;
+  public boolean nearestCash;
   public String kind,title,note,category="",status="待报销"; public LocalDateTime at,receivedAt;
   public final List<Receipt> receipts=new ArrayList<>();
   public Entry(long id,boolean income,long amount,LocalDateTime at,String title,String note,long accountId){this.id=id;this.income=income;this.kind=income?INCOME:LARGE;this.amount=amount;this.at=at;this.title=title;this.note=note;this.accountId=accountId;}
@@ -42,6 +44,9 @@ public final class Ledger {
   public long amount,accountId;public LocalDateTime at;
   public boolean cashLinked;
   public Receipt(long amount,LocalDateTime at){this.amount=amount;this.at=at;}
+ }
+ public static final class Transfer {
+  public long id,fromId,toId,amount;public LocalDateTime at;public String note="";
  }
  public static final class HistoryMonth {
   public long importId;
@@ -126,6 +131,7 @@ public final class Ledger {
   public int refreshMinutes=120;
  }
  public static final class Data {
+  public final List<Transfer> transfers=new ArrayList<>();
   public final List<DebtLedger.Loan> debts=new ArrayList<>();
   public final List<ImportJournal.Batch> imports=new ArrayList<>();
   public final List<BankLedger.Product> banks=new ArrayList<>();
@@ -152,16 +158,17 @@ public final class Ledger {
   public long balance(Account a){Long value=AccountRecords.balanceAt(this,a,null);return value==null?0:value;}
   public long total(){long v=0;for(Account a:accounts)if(a.deletedAt==null)v=Math.addExact(v,balance(a));return v;}
   public List<Account> activeAccounts(){List<Account> list=new ArrayList<>();for(Account a:accounts)if(a.deletedAt==null)list.add(a);return list;}
-  public long nextId(){long n=System.currentTimeMillis();for(FundOrder order:fundOrders)n=Math.max(n,order.id+1);for(DebtLedger.Loan loan:debts){n=Math.max(n,loan.id+1);for(DebtLedger.Payment p:loan.payments)n=Math.max(n,p.id+1);}for(ImportJournal.Batch b:imports)n=Math.max(n,b.id+1);for(Account a:accounts)n=Math.max(n,a.id+1);for(Snapshot s:snapshots)n=Math.max(n,s.id+1);for(Entry e:entries)n=Math.max(n,e.id+1);for(WatchGroup g:watchGroups)n=Math.max(n,g.id+1);for(Fund f:funds){n=Math.max(n,f.id+1);for(FundBuy b:f.buys)n=Math.max(n,b.id+1);for(RecurringRecord r:f.plan.records)n=Math.max(n,r.id+1);}for(BankLedger.Product p:banks){n=Math.max(n,p.id+1);for(BankLedger.Observation o:p.observations)n=Math.max(n,o.id+1);for(BankLedger.Event e:p.events)n=Math.max(n,e.id+1);}return n;}
+  public long nextId(){long n=System.currentTimeMillis();for(Transfer t:transfers)n=Math.max(n,t.id+1);for(FundOrder order:fundOrders)n=Math.max(n,order.id+1);for(DebtLedger.Loan loan:debts){n=Math.max(n,loan.id+1);for(DebtLedger.Payment p:loan.payments)n=Math.max(n,p.id+1);}for(ImportJournal.Batch b:imports)n=Math.max(n,b.id+1);for(Account a:accounts)n=Math.max(n,a.id+1);for(Snapshot s:snapshots)n=Math.max(n,s.id+1);for(Entry e:entries)n=Math.max(n,e.id+1);for(WatchGroup g:watchGroups)n=Math.max(n,g.id+1);for(Fund f:funds){n=Math.max(n,f.id+1);for(FundBuy b:f.buys)n=Math.max(n,b.id+1);for(RecurringRecord r:f.plan.records)n=Math.max(n,r.id+1);}for(BankLedger.Product p:banks){n=Math.max(n,p.id+1);for(BankLedger.Observation o:p.observations)n=Math.max(n,o.id+1);for(BankLedger.Event e:p.events)n=Math.max(n,e.id+1);}return n;}
  }
  public static final class Report {
   public final YearMonth month;public Snapshot start,end;public boolean baseline,closed,anomaly,available,imported;public long expense;public int days;public LocalDateTime through;
+  public boolean estimated,boundaryWarning,incomplete;
   public Report(YearMonth m){month=m;}
   public boolean hasData(){return available;}
   public boolean usable(){return available&&!anomaly;}
-  public boolean hasDaily(){return usable()&&baseline&&days>0;}
+  public boolean hasDaily(){return usable()&&baseline&&!incomplete&&days>0;}
   public long daily(){return BigDecimal.valueOf(expense).divide(BigDecimal.valueOf(days),0,RoundingMode.HALF_UP).longValueExact();}
-  public String status(){if(anomaly)return "请核对收入、报销与账户余额";if(!available)return "暂无支出数据";if(start!=null&&end==start&&!imported)return "仅一次余额更新，支出暂为0";if(!baseline)return start==null?"缺少月初基准":"缺少月初基准 · 自"+start.at.toLocalDate()+"更新起累计";if(closed)return "完整月份 · "+days+"天";return "截至 "+through.toLocalDate()+" · "+days+"天";}
+  public String status(){if(anomaly)return "请核对收入、报销与账户余额";if(!available)return "暂无支出数据";if(incomplete)return "部分账户本月未更新 · 仅统计已有余额区间";if(start!=null&&end==start&&!imported)return "仅一次余额更新，支出暂为0";if(!baseline)return start==null?"缺少上月末基准":"缺少上月末基准 · 自"+start.at.toLocalDate()+"更新起累计";if(estimated)return "包含推算余额 · 截至 "+through.toLocalDate()+"，仅供参考";if(closed)return "完整月份 · "+days+"天";return (boundaryWarning?"跨月余额口径 · ":"")+"截至 "+through.toLocalDate()+" · "+days+"天";}
  }
  public static long parseMoney(String s,boolean positive){if(s==null||!s.trim().matches("[0-9]+(\\.[0-9]{1,2})?"))throw new IllegalArgumentException("请输入金额，最多两位小数");try{long v=new BigDecimal(s.trim()).movePointRight(2).longValueExact();if(v>MAX_MONEY||(positive&&v==0))throw new IllegalArgumentException("金额超出范围");return v;}catch(ArithmeticException e){throw new IllegalArgumentException("金额超出范围");}}
  /** CSV dates are strict: 2026/10/21, 2026/10 and 2026/10/21 12:06. Month and day may skip the leading zero (Excel does). */

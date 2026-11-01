@@ -48,8 +48,8 @@ public class V451RulesTest {
         d.history.add(new Ledger.HistoryMonth(YearMonth.of(2026,10),100000,LocalDateTime.of(2026,10,16,0,0)));
         assertEquals(100000,month(d).expense);observe(d,23,1,350000);assertEquals(150000,month(d).expense);
     }
-    @Test public void emptyMonthIsMissingAndSingleObservationIsRealZero(){
-        Ledger.Data d=base();assertFalse(month(d).hasData());observe(d,15,1,200000);assertTrue(month(d).hasData());assertEquals(0,month(d).expense);
+    @Test public void knownOpeningIsBaselineAndFirstRealUpdateMeasuresConsumption(){
+        Ledger.Data d=base();assertTrue(month(d).hasData());assertEquals(0,month(d).expense);observe(d,15,1,200000);assertTrue(month(d).hasData());assertEquals(300000,month(d).expense);
     }
     @Test public void historicalDateAndTimestampHaveExplicitMeaning(){
         assertEquals(LocalDateTime.of(2026,10,16,0,0),HistoryImport.historyEnd("2026/10/16 00:00"));

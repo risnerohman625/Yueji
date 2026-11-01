@@ -284,7 +284,7 @@ public class MainActivity extends Activity {
     void subpage(){
         switch(page){
             case "add_account":accountForm(null);break;case "edit_account":accountForm(focusedAccount());break;
-            case "check":checkPage();break;case "account_history":accountHistory();break;case "month_detail":MonthScreen.show(this,monthFocus);break;
+            case "check":checkPage();break;case "account_history":accountHistory();break;case "account_transfers":new TransferScreens(this).list();break;case "month_detail":MonthScreen.show(this,monthFocus);break;
             case "income_detail":incomeDetail();break;case "income_category":incomeCategory();break;case "large_detail":entryDetail(Ledger.LARGE);break;case "reimburse_detail":entryDetail(Ledger.REIMBURSE);break;
             case "income_form":entryForm(Ledger.INCOME);break;case "large_form":entryForm(Ledger.LARGE);break;case "reimburse_form":entryForm(Ledger.REIMBURSE);break;
             case "fund_detail":fundScreens.detail(data,fundFocus,false);break;case "fund_total":fundScreens.detail(data,0,true);break;case "fund_profit":fundScreens.profitList(data);break;case "fund_trades":fundScreens.trades(data,fundFocus);break;case "fund_watchlist":watchScreens.show();body.post(this::autoRefreshFunds);break;case "watch_detail":watchScreens.detail(watchFocus);break;
@@ -347,29 +347,29 @@ public class MainActivity extends Activity {
             if(v==null){if(a.deletedAt!=null)continue;optional.add(a.id);}else if(snapshotEditing==null&&a.deletedAt!=null)continue;
             amounts.put(a.id,field(c,v==null?a.name+"余额（本次未包含，填写即补入）":a.name+"余额",v==null?"":Ledger.decimal(v),true));
         }
-        EditText note=field(c,"备注（可选）",snapshotEditing==null?"":snapshotEditing.note,false);gap(body,6);
+        EditText note=field(c,"备注（可选）",snapshotEditing==null?"用户手动更新余额":snapshotEditing.note,false);gap(body,6);
         body.addView(button("确认保存",()->{try{
             if(date.at.isAfter(LocalDateTime.now()))throw new IllegalArgumentException("更新时间不能晚于现在");
             Ledger.Data candidate=copy();long sid=snapshotEditing==null?candidate.nextId():snapshotEditing.id;
             for(Ledger.Snapshot s:candidate.snapshots)if(s.id!=sid&&s.at.equals(date.at))throw new IllegalArgumentException("此时刻已有更新，请从账户历史中修改");
             Ledger.Snapshot replacement=new Ledger.Snapshot(sid,date.at,note.getText().toString().trim());
             replacement.partial=snapshotEditing!=null&&snapshotEditing.partial;
-            for(Map.Entry<Long,EditText> e:amounts.entrySet()){String value=e.getValue().getText().toString().trim();if(value.isEmpty()&&optional.contains(e.getKey()))continue;replacement.balances.put(e.getKey(),Ledger.parseMoney(value,false));}
+            for(Map.Entry<Long,EditText> e:amounts.entrySet()){String value=e.getValue().getText().toString().trim();if(value.isEmpty()&&optional.contains(e.getKey()))continue;replacement.balances.put(e.getKey(),Ledger.parseMoney(value,false));replacement.notes.put(e.getKey(),note.getText().toString().trim());}
             if(replacement.balances.isEmpty())throw new IllegalArgumentException("请填写至少一个账户的实际余额");
             if(replacement.balances.size()<amounts.size())replacement.partial=true;
             candidate.snapshots.removeIf(s->s.id==sid);candidate.snapshots.add(replacement);Ledger.pullAccountsBack(candidate,replacement);
             commit(candidate);snapshotEditing=null;back();
         }catch(Exception e){error(e);}}));
     }
-    void accountHistory(){Ledger.Account a=focusedAccount();if(a==null){go("");return;}top("账户余额更新记录","更新余额",()->updateAccountBalance(a,null));
-        body.addView(text(a.name+" · "+a.type,13,MUTED,false));gap(body,10);
+    void accountHistory(){Ledger.Account a=focusedAccount();if(a==null){go("");return;}top("账户余额更新记录",null,null);
+        body.addView(text(a.name+" · "+a.type,13,MUTED,false));gap(body,10);LinearLayout actions=row();TextView transfer=action("转账",()->new TransferScreens(this).open(a.id,null));weight(actions,transfer);TextView update=button("更新余额",()->updateAccountBalance(a,null));LinearLayout.LayoutParams updateLp=new LinearLayout.LayoutParams(0,dp(44),1);updateLp.leftMargin=dp(10);actions.addView(update,updateLp);body.addView(actions);gap(body,6);
         InlineHelp.add(this,body,"余额记录","左滑可编辑时间、余额或删除本账户这一条记录。\n删除不影响其他账户，也不删除关联收支或投资；自动余额删除后不会重新出现。");
         for(Ledger.Snapshot s:AccountRecords.rows(data,a)){
             boolean initial=a.openingKnown&&s.at.equals(a.created);LinearLayout c=card(),r=row();c.setBackground(ripple(WHITE,18));
             TextView date=fit(text(TIME.format(s.at),12,INK,true),12,8);r.addView(date,new LinearLayout.LayoutParams(0,dp(29),1));
             TextView balance=fit(text("¥ "+money(s.balances.get(a.id)),17,PURPLE,true),17,8);balance.setTag("bounded-number");LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,dp(29),1.1f);bp.leftMargin=dp(8);r.addView(balance,bp);c.addView(r);
             if(initial){gap(c,4);c.addView(text("初始余额",11,PURPLE,true));}
-            if(!s.note.isEmpty()){gap(c,4);c.addView(text(s.note,12,MUTED,false));}
+            String note=AccountRecords.note(s,a.id);if(!note.isEmpty()){gap(c,4);c.addView(text(note,12,MUTED,false));}if(s.cashGenerated||s.cashAccounts.contains(a.id)){gap(c,4);c.addView(text("推算余额 · 非实测",11,Ui.AMBER,false));}
             c.setOnClickListener(v->updateAccountBalance(a,s));
             SwipeRow swipe=new SwipeRow(this,c,new SwipeRow.Action("编辑","编辑余额记录"+s.at,PURPLE,false,()->updateAccountBalance(a,s)),new SwipeRow.Action("删除","删除余额记录"+s.at,RED,false,()->deleteAccountObservation(a,s)));
             LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(8);body.addView(swipe,p);
@@ -401,12 +401,13 @@ public class MainActivity extends Activity {
         LinearLayout form=col();form.setPadding(dp(18),0,dp(18),dp(14));
         EditText value=field(form,"本账户余额",existing==null&&!AccountRecords.known(data,account)?"":Ledger.decimal(existing==null?data.balance(account):existing.balances.get(account.id)),true);
         DateControl date=new DateControl(form,"余额对应时间",existing==null?LocalDateTime.now().withSecond(0).withNano(0):existing.at,false);
+        EditText note=field(form,"余额备注",existing==null||existing.cashGenerated||existing.cashAccounts.contains(account.id)?"用户手动更新余额":existing.notes.getOrDefault(account.id,existing.note.isEmpty()?"用户手动更新余额":existing.note),false);
         form.addView(text("只记录此账户本次实际余额，其他账户继续使用各自上次更新；同一时刻的记录会合并。核对自动记账余额后，以本次实测金额为准，之后修改收入或报销不会改写这条实测余额。",12,MUTED,false));
         AlertDialog dialog=AppIcons.dialog(this).setTitle(existing!=null&&account.openingKnown&&existing.at.equals(account.created)?"编辑初始余额":"更新 "+account.name).setView(wrap(form)).setNegativeButton("取消",null).setPositiveButton("保存",null).create();dialog.show();
         dialog.getButton(-1).setOnClickListener(v->{try{
             Ledger.Data candidate=copy();
             long amount=Ledger.parseMoney(value.getText().toString(),false);
-            if(existing==null)MonthLedger.updateAccount(candidate,account.id,date.at,amount);else AccountRecords.edit(candidate,account.id,existing.at,date.at,amount);commit(candidate);dialog.dismiss();render();
+            if(existing==null)MonthLedger.updateAccount(candidate,account.id,date.at,amount,note.getText().toString());else AccountRecords.edit(candidate,account.id,existing.at,date.at,amount,note.getText().toString());commit(candidate);dialog.dismiss();render();
         }catch(Exception e){error(e);}});
     }
     void snapshotMenu(Ledger.Snapshot s){AppIcons.dialog(this).setTitle(TIME.format(s.at)).setItems(new String[]{"修改本次全部账户更新","删除更新"},(d,w)->{
@@ -571,20 +572,24 @@ public class MainActivity extends Activity {
         Spinner category=null;if(income){int selected=old==null?0:data.categories.indexOf(old.category);category=choices(f,"收入类别",data.categories.toArray(new String[0]),selected);gap(f,8);f.addView(ui.link("＋ 自定义类别",this::manageCategories));}
         EditText name=income?null:field(f,"名称",old==null?"":old.title,false);EditText amount=field(f,"金额",old==null?"":Ledger.decimal(old.amount),true);
         DateControl at=new DateControl(f,income?"到账时间":"支出时间",old==null?LocalDateTime.now():old.at,false);
-        boolean linked=(income||reimburse)&&(old==null||old.cashLinked);
+        boolean linked=reimburse&&(old==null||old.cashLinked);
         List<Ledger.Account> available=new ArrayList<>();for(Ledger.Account a:data.accounts)if(a.deletedAt==null||old!=null&&a.id==old.accountId)available.add(a);
         String[] accounts=new String[available.size()+1];accounts[0]=linked?"请选择账户":"不指定账户";int selected=0;
         for(int i=0;i<available.size();i++){accounts[i+1]=available.get(i).name;if(old!=null&&old.accountId==available.get(i).id)selected=i+1;}
-        Spinner account=choices(f,linked?(income?"到账账户（必选）":"垫付账户（必选）"):"账户（可选）",accounts,selected);
-        if(income||reimburse){
+        Spinner account=choices(f,linked?"垫付账户（必选）":reimburse?"账户（可选）":"账户（可选，勾选后必选）",accounts,selected);
+        if(!reimburse&&available.isEmpty())f.addView(action("先添加账户",()->go("add_account")));
+        if(reimburse){
             gap(f,9);f.addView(text(linked?(income?"保存后自动增加到账账户余额；计算支出时排除这笔收入。":"垫付自动扣减所选账户，到账自动增加到账账户。报销不计入收入和支出；资产趋势保留金额变动。"):"历史记录保持原状，不自动补改旧余额。新增报销到账须选账户并自动增加余额。",11.5f,MUTED,false));
             if(available.isEmpty())f.addView(action("先添加账户",()->go("add_account")));
         }
         ReceiptEditor receipts=reimburse?new ReceiptEditor(this,f,amount,old):null;
         EditText note=field(f,"备注（可选）",old==null?"":old.note,false);Spinner finalCategory=category;gap(body,4);
+        CheckBox include=new CheckBox(this);include.setText("是/否计入账户收支");include.setContentDescription("是否计入账户收支");include.setTextColor(INK);include.setButtonTintList(ColorStateList.valueOf(Ui.ACCENT));include.setTextSize(14);include.setChecked(old!=null&&old.cashLinked);
+        if(!reimburse){LinearLayout policy=row();weight(policy,include);policy.addView(InlineHelp.icon(this,"计入账户收支",InlineHelp.CASH_POLICY));body.addView(policy);}
         body.addView(button("保存记录",()->{try{
+            if(!reimburse&&include.isChecked()&&account.getSelectedItemPosition()==0)throw new IllegalArgumentException("勾选计入账户收支后必须选择账户");
             Ledger.Data candidate=copy();long id=old==null?candidate.nextId():old.id;String title=income?finalCategory.getSelectedItem().toString():name.getText().toString().trim();
-            Ledger.Entry e=new Ledger.Entry(id,income,Ledger.parseMoney(amount.getText().toString(),true),at.at,title,note.getText().toString().trim(),account.getSelectedItemPosition()==0?0:available.get(account.getSelectedItemPosition()-1).id);e.kind=kind;e.cashLinked=linked;if(income)e.category=title;
+            Ledger.Entry e=new Ledger.Entry(id,income,Ledger.parseMoney(amount.getText().toString(),true),at.at,title,note.getText().toString().trim(),account.getSelectedItemPosition()==0?0:available.get(account.getSelectedItemPosition()-1).id);e.kind=kind;e.cashLinked=reimburse?linked:include.isChecked();e.nearestCash=!reimburse;if(income)e.category=title;
             if(reimburse)receipts.apply(e);
             candidate.entries.removeIf(x->x.id==id);candidate.entries.add(e);commit(candidate);entryEditing=null;back();
         }catch(Exception e){error(e);}}));
@@ -700,7 +705,7 @@ public class MainActivity extends Activity {
         updates().about(card(body));
         for(int i=0;i<body.getChildCount();i++){View child=body.getChildAt(i);if(child.getLayoutParams() instanceof LinearLayout.LayoutParams){LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)child.getLayoutParams();lp.bottomMargin=Math.min(lp.bottomMargin,dp(8));child.setLayoutParams(lp);}}
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.10";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.11";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}

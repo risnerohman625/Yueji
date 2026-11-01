@@ -29,10 +29,13 @@ final class AccountRecords {
         sparseBefore(data,a);MonthLedger.updateAccount(data,id,at,amount);
     }
     static void edit(Ledger.Data data,long id,LocalDateTime from,LocalDateTime to,long amount){
+        edit(data,id,from,to,amount,"用户手动更新余额");
+    }
+    static void edit(Ledger.Data data,long id,LocalDateTime from,LocalDateTime to,long amount,String note){
         Ledger.Account a=account(data,id);
-        if(a.openingKnown&&from.equals(a.created)){setOpening(data,id,to,amount);return;}
+        if(a.openingKnown&&from.equals(a.created)){setOpening(data,id,to,amount);for(Ledger.Snapshot s:data.snapshots)if(s.at.equals(to))s.notes.put(id,note);return;}
         if(!from.equals(to))for(Ledger.Snapshot s:data.snapshots)if(s.at.equals(to)&&s.balances.containsKey(id))throw new IllegalArgumentException("此账户在目标时刻已有余额记录，请编辑该条记录");
-        removeCell(data,a,from);MonthLedger.updateAccount(data,id,to,amount);
+        removeCell(data,a,from);MonthLedger.updateAccount(data,id,to,amount,note);
     }
     static void delete(Ledger.Data data,long id,LocalDateTime at){
         Ledger.Account a=account(data,id);removeCell(data,a,at);
@@ -42,12 +45,13 @@ final class AccountRecords {
         // Suppression survives rebuild/backup; the linked income or investment itself is not deleted.
         a.skippedCashObservations.add(at);
         for(Iterator<Ledger.Snapshot> it=data.snapshots.iterator();it.hasNext();){Ledger.Snapshot s=it.next();if(!s.at.equals(at))continue;
-            s.balances.remove(a.id);s.cashAccounts.remove(a.id);s.partial=true;if(s.balances.isEmpty())it.remove();
+            s.balances.remove(a.id);s.cashAccounts.remove(a.id);s.notes.remove(a.id);s.sources.remove(a.id);s.partial=true;if(s.balances.isEmpty())it.remove();
         }
     }
     static boolean known(Ledger.Data data,Ledger.Account a){
         if(a.openingKnown)return true;for(Ledger.Snapshot s:data.snapshots)if(s.balances.containsKey(a.id))return true;return false;
     }
+    static String note(Ledger.Snapshot s,long id){String user=s.notes.containsKey(id)?s.notes.get(id):s.cashGenerated?"":s.note;String source=s.sources.get(id);return source==null||source.isEmpty()?user:user.isEmpty()?source:user+"\n"+source;}
     static Long balanceAt(Ledger.Data data,Ledger.Account a,LocalDateTime through){
         Long amount=a.openingKnown?a.opening:null;LocalDateTime latest=null;
         for(Ledger.Snapshot s:data.snapshots)if((through==null||!s.at.isAfter(through))&&s.balances.containsKey(a.id)&&(latest==null||!s.at.isBefore(latest))){amount=s.balances.get(a.id);latest=s.at;}
