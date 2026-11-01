@@ -104,5 +104,9 @@ public final class FundClient {
         if(!code.matches("[0-9]{6}"))throw new IllegalArgumentException("基金代码无效");
         return NetworkIo.call(()->{String overview="",fees="";try{overview=get("https://fundf10.eastmoney.com/jbgk_"+code+".html");}catch(IOException ignored){}try{fees=get("https://fundf10.eastmoney.com/jjfl_"+code+".html");}catch(IOException ignored){}FundProfile p=FundProfile.parse(name,overview,fees);if(p.management.isEmpty())p.management=FundProfile.match(overview,"管理费率</th>\\s*<td[^>]*>(.*?)</td>");if(p.custody.isEmpty())p.custody=FundProfile.match(overview,"托管费率</th>\\s*<td[^>]*>(.*?)</td>");if(p.service.isEmpty())p.service=FundProfile.match(overview,"销售服务费率</th>\\s*<td[^>]*>(.*?)</td>");if(overview.isEmpty()&&fees.isEmpty())p.updated="";return p;});
     }
+    static FundProfile dailyLimit(String code)throws Exception{
+        if(!code.matches("[0-9]{6}"))throw new IllegalArgumentException("基金代码无效");
+        return NetworkIo.call(()->{FundProfile profile=new FundProfile();profile.readDailyLimit(get("https://fundf10.eastmoney.com/jjfl_"+code+".html"),"");return profile;});
+    }
     private FundClient(){}
 }

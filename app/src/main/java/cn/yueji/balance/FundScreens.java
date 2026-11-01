@@ -246,7 +246,9 @@ final class FundScreens {
         if(all){for(Ledger.Fund f:data.funds){if(f.hidden)continue;ever.add(f);if(!f.removed())onHome.add(f);}}else{onHome.add(focus);ever.add(focus);}
         if(all){
             LinearLayout head=m.row();head.setPadding(m.dp(4),m.dp(2),m.dp(2),m.dp(8));m.weight(head,m.text("基金总览",21,MainActivity.INK,true));TextView export=m.action("导出",m::exportFunds);export.setContentDescription("导出基金信息");head.addView(export);m.body.addView(head);
-        }else m.top(focus.name,"返回",m::back);
+        }else{
+            m.top(focus.name,"更多",()->more(focus));LinearLayout header=(LinearLayout)m.body.getChildAt(m.body.getChildCount()-1);TextView more=(TextView)header.getChildAt(header.getChildCount()-1);more.setContentDescription("基金更多");more.setTextColor(WatchGroups.explicit(data,focus.code)?Ui.ACCENT:Ui.FAINT);
+        }
         TradingCalendar calendar=calendar();LocalDate today=FundEngine.now().toLocalDate();
         long value=0,cost=0,current=0,yesterday=0,invested=0,cumulative=0,heldAll=0;boolean yesterdayKnown=true,complete=true,cumulativeKnown=true;
         for(Ledger.Fund f:onHome){value+=FundEngine.value(f,today);cost+=FundEngine.holdingCost(f,today);current+=FundEngine.today(f,FundEngine.now());if(!FundEngine.known(f,today))complete=false;Long prior=FundEngine.daily(f,today.minusDays(1),calendar);if(prior==null)yesterdayKnown=false;else yesterday+=prior;}
@@ -283,6 +285,14 @@ final class FundScreens {
             if(focus.plan.enabled){m.gap(info,5);info.addView(m.text("定投："+focus.plan.frequency+" 每次 ¥ "+m.money(focus.plan.amount)+" · "+focus.plan.dayOfMonth+" 日 · 关联 "+m.data.accountName(focus.plan.accountId),10.5f,Ui.ACCENT_DEEP,false));}
         }
         chartCard(m.body,ever);
+    }
+
+    void more(Ledger.Fund fund){
+        Ledger.Data latest=m.store.load();if(WatchGroups.explicit(latest,fund.code)){m.watchScreens.open(fund.code);return;}
+        long epoch=LedgerStore.epoch();AppIcons.dialog(m).setTitle("加入自选基金？").setMessage("此基金尚未主动加入自选。加入后可在自选详情查看更多资料，不会新建买入或改变持仓。").setNegativeButton("取消",null).setPositiveButton("加入并查看",(d,w)->{try{
+            Ledger.Data candidate=m.store.load();Ledger.Fund current=null;for(Ledger.Fund f:candidate.funds)if(f.id==fund.id&&f.code.equals(fund.code)&&!f.removed())current=f;if(current==null)throw new IllegalArgumentException("该基金已移除，请重新打开");
+            if(!WatchGroups.explicit(candidate,fund.code))candidate.watchFunds.add(WatchAnalytics.owned(current));m.commit(candidate,epoch);m.watchScreens.open(fund.code);
+        }catch(Exception e){m.error(e);}}).show();
     }
 
     // ---------------------------------------------------------------- one card, two charts

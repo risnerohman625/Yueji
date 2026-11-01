@@ -8,19 +8,20 @@ import java.util.*;
 /** One inline asset panel, with the account actions kept outside its replaceable content. */
 final class AssetPanels {
     static final String[] TITLES={"资产构成","资产趋势","账户列表"};
+    static int step(int index,int direction){return (index-direction+3)%3;}
     final MainActivity m;FrameLayout host;TextView title;
     AssetPanels(MainActivity m){this.m=m;}
     View selector(){
         LinearLayout group=m.row();group.setGravity(Gravity.CENTER_VERTICAL);group.setBaselineAligned(false);group.setBackground(m.ripple(Ui.ACCENT_TINT,12));
         TextView left=arrow("◀","上一个资产视图",-1),right=arrow("▶","下一个资产视图",1);
         title=m.fit(m.text(TITLES[m.assetTab],13,Ui.INK,true),13,9);title.setGravity(Gravity.CENTER);title.setIncludeFontPadding(false);title.setContentDescription("切换资产视图");
-        title.setOnClickListener(v->switchTo((m.assetTab+1)%3));group.addView(left,new LinearLayout.LayoutParams(m.dp(24),m.dp(40)));
+        title.setOnClickListener(v->switchTo(step(m.assetTab,1)));group.addView(left,new LinearLayout.LayoutParams(m.dp(24),m.dp(40)));
         group.addView(title,new LinearLayout.LayoutParams(m.dp(62),m.dp(40)));group.addView(right,new LinearLayout.LayoutParams(m.dp(24),m.dp(40)));
         return group;
     }
     TextView arrow(String label,String description,int direction){
         TextView view=m.text(label,11,Ui.ACCENT,true);view.setGravity(Gravity.CENTER);view.setIncludeFontPadding(false);view.setContentDescription(description);
-        view.setOnClickListener(v->switchTo((m.assetTab+direction+3)%3));return view;
+        view.setOnClickListener(v->switchTo(step(m.assetTab,direction)));return view;
     }
     void mount(LinearLayout parent){
         host=new FrameLayout(m);host.setContentDescription("资产视图内容");parent.addView(host,new LinearLayout.LayoutParams(-1,0,1));show();

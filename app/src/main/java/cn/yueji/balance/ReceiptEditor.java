@@ -29,7 +29,7 @@ final class ReceiptEditor {
     void refresh(){
         rows.removeAllViews();long paid=received();if(paid>0){changing=true;status.setSelection(paid==amount()?2:1);changing=false;}
         for(Ledger.Receipt r:values){LinearLayout line=m.row();line.setPadding(0,m.dp(7),0,m.dp(7));
-            LinearLayout info=m.col();info.addView(m.text("¥ "+m.money(r.amount)+"  "+MainActivity.TIME.format(r.at),13,MainActivity.INK,true));info.addView(m.text(m.data.accountName(r.accountId),11,MainActivity.MUTED,false));m.weight(line,info);
+            LinearLayout info=m.col();info.addView(m.text("¥ "+m.money(r.amount)+"  "+MainActivity.TIME.format(r.at),13,Ui.BLUE,true));info.addView(m.text(m.data.accountName(r.accountId),11,MainActivity.MUTED,false));m.weight(line,info);
             TextView edit=m.action("修改",()->edit(r));edit.setTextSize(11);line.addView(edit);TextView remove=m.action("删除",()->{values.remove(r);if(values.isEmpty()){changing=true;status.setSelection(0);changing=false;}refresh();});remove.setTextSize(11);line.addView(remove);rows.addView(line);
         }
         refreshVisibility();

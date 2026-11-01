@@ -1,0 +1,3 @@
+Original YuejiV4.7.12 retained at f1dcdf5c7224c3d831db3003f90b0a22bdb6e56d.
+Only the same six inherited EOL-only files are dirty there; their bytes match this sibling and remain excluded from the new commit.
+All new edits/builds occur in YuejiV4.7.13. No physical phone data cleared, no private backup rewritten.

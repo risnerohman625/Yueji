@@ -16,7 +16,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class AccountCashUiTest {
     final V43UiTest h=new V43UiTest();final YuejiTest t=h.t;
-    @Before public void before(){h.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",31).commit();t.dir=new File(t.context.getExternalFilesDir(null),"qa-v466");t.dir.mkdirs();}
+    @Before public void before(){h.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",32).commit();t.dir=new File(t.context.getExternalFilesDir(null),"qa-v466");t.dir.mkdirs();}
     @After public void after()throws Exception{h.after();}
     Ledger.Data data(){
         Ledger.Data d=new Ledger.Data();d.settings.autoRefresh=false;

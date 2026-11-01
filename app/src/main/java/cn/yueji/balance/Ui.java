@@ -42,6 +42,8 @@ final class Ui {
     static int GREEN_SOFT = 0xFFE6F5EF;
     static int AMBER = 0xFFB07A32;
     static int AMBER_SOFT = 0xFFFBF1E3;
+    static int BLUE=0xFF287EC0,BLUE_SOFT=0xFFEAF3FC;
+    static int ORANGE=0xFFB97416,RECORD_PURPLE=0xFF7C5CC4;
     static int HERO_A = 0xFF6D4DB8, HERO_B = 0xFF9B78DA;
     static boolean dark;
     static final String[] PALETTES={"紫色","蓝色","黄色","青色","玫瑰"};
@@ -67,6 +69,7 @@ final class Ui {
         ACCENT=PURPLE;ACCENT_DEEP=PURPLE_DEEP;ACCENT_SOFT=PURPLE_SOFT;ACCENT_TINT=PURPLE_TINT;
         BORDER=dark?0xFF3A3744:blend(Color.WHITE,base,.11f);
         RED=dark?0xFFFF8FA4:0xFFCC4963;GREEN=dark?0xFF65D6AA:0xFF248661;AMBER=dark?0xFFE4BD73:0xFF9A6B21;
+        BLUE=dark?0xFF80BDFF:0xFF2674B5;ORANGE=dark?0xFFFFC267:0xFFAA6712;RECORD_PURPLE=dark?0xFFC4A7FF:0xFF7C5CC4;BLUE_SOFT=blend(SURFACE,BLUE,dark?.15f:.09f);
         RED_SOFT=blend(SURFACE,RED,dark?.15f:.09f);GREEN_SOFT=blend(SURFACE,GREEN,dark?.15f:.09f);AMBER_SOFT=blend(SURFACE,AMBER,dark?.15f:.09f);
         HERO_A=blend(base,Color.BLACK,.12f);HERO_B=blend(base,Color.WHITE,.20f);
     }

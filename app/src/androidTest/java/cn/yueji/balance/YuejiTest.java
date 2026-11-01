@@ -31,7 +31,7 @@ public class YuejiTest {
         for(Map.Entry<String,?> e:lockSettings.entrySet()){Object v=e.getValue();if(v instanceof String)prefs.putString(e.getKey(),(String)v);else if(v instanceof Long)prefs.putLong(e.getKey(),(Long)v);else if(v instanceof Boolean)prefs.putBoolean(e.getKey(),(Boolean)v);else if(v instanceof Integer)prefs.putInt(e.getKey(),(Integer)v);}
         prefs.commit();
     }
-    void start(Ledger.Data d){context.getSharedPreferences("MainActivity",0).edit().remove("tabOrder").commit();store.save(d);app=(MainActivity)instrument.startActivitySync(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));instrument.waitForIdleSync();}
+    void start(Ledger.Data d){context.getSharedPreferences("MainActivity",0).edit().remove("tabOrder").commit();store.save(d);app=(MainActivity)instrument.startActivitySync(new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));instrument.waitForIdleSync();app.watchScreens.limitFetcher=code->new FundProfile();}
     void ui(Runnable run){instrument.runOnMainSync(run);instrument.waitForIdleSync();}
     void shot(String name){device.waitForIdle();device.takeScreenshot(new File(dir,name));}
     Ledger.Data sample(){

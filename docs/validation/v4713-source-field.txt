@@ -1,0 +1,10 @@
+Public disclosed purchase limits checked locally; values are source-time evidence, not fixed application defaults.
+
+https://fundf10.eastmoney.com/jjfl_161125.html
+日累计申购限额: 10.00元
+
+https://fundf10.eastmoney.com/jjfl_161128.html
+日累计申购限额: 10.00元
+
+https://fundf10.eastmoney.com/jjfl_000001.html
+日累计申购限额: 无限额

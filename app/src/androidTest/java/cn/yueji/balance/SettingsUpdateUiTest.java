@@ -11,7 +11,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class SettingsUpdateUiTest {
  final V43UiTest h=new V43UiTest();final YuejiTest t=h.t;
- @Before public void before(){h.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",31).commit();}
+ @Before public void before(){h.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",32).commit();}
  @After public void after()throws Exception{h.after();}
  @Test public void nestedManagementHasIndependentChildren(){t.start(t.sample());t.ui(()->{t.app.openTab(MainActivity.TAB_SETTINGS);View title=t.findText(t.app.body,"数据导入及导出备份管理");assertNotNull(title);((View)title.getParent().getParent()).performClick();assertEquals(View.VISIBLE,t.app.sectionContents.get("dataManagement").getVisibility());View child=t.findText(t.app.body,"收支报销数据管理");((View)child.getParent()).performClick();assertNotNull(t.findText(t.app.body,"导入收支报销"));assertEquals(View.VISIBLE,t.app.sectionContents.get("dataManagement").getVisibility());assertNotNull(t.findText(t.app.body,"软件使用说明"));assertNotNull(t.findText(t.app.body,"Yueji V"+t.app.versionName()));assertNotNull(t.findText(t.app.body,"检查更新"));});}
  @Test public void versionOrderingAndApkProviderAreRestricted()throws Exception{assertTrue(AppUpdates.compare("v4.8.0","4.7.1")>0);assertEquals(0,AppUpdates.compare("v4.7.1","4.7.1"));assertTrue(AppUpdates.compare("4.7.0","4.7.1")<0);UpdateApkProvider provider=new UpdateApkProvider();try{provider.check(android.net.Uri.parse("content://cn.yueji.balance.updates/ledger.db"));fail();}catch(java.io.FileNotFoundException expected){}}

@@ -1,0 +1,4 @@
+Live source tests are separate from deterministic UI regressions.
+An intermediate emulator run encountered TLS connection closure across existing NAV endpoints and the new limit endpoint.
+Cold-booting the dedicated emulator restored connectivity; all 3 live tests passed on the final APK.
+No TLS certificate validation was disabled and no HTTP downgrade was introduced.

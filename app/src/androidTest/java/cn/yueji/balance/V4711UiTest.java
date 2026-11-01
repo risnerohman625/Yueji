@@ -12,7 +12,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class V4711UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;final V43UiTest h=old.h;
-    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",31).commit();}
+    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",32).commit();}
     @After public void after()throws Exception{old.after();}
     Ledger.Data sample(){return new V4711Fixture().data();}
     static final class V4711Fixture {

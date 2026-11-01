@@ -15,7 +15,7 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class V479UiTest {
     final V470UiTest old=new V470UiTest();final YuejiTest t=old.t;final V43UiTest h=old.h;
-    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",31).commit();}
+    @Before public void before(){old.before();t.context.getSharedPreferences("updates",0).edit().putString("guideRead",UsageGuideActivity.REVISION).putLong("lastOpenedBuild",32).commit();}
     @After public void after()throws Exception{t.context.getSystemService(NotificationManager.class).cancel(23);old.after();}
     void segment(Segmented tabs,int index){t.ui(()->{float x=(index+.5f)*tabs.getWidth()/tabs.count(),y=tabs.getHeight()/2f;long at=android.os.SystemClock.uptimeMillis();tabs.onTouchEvent(MotionEvent.obtain(at,at,MotionEvent.ACTION_DOWN,x,y,0));tabs.onTouchEvent(MotionEvent.obtain(at,at+10,MotionEvent.ACTION_UP,x,y,0));});}
     @Test public void purchaseIsFullPageAndDailyWeeklyControlsSwitch(){t.start(old.sample());t.ui(()->t.app.fundPurchaseScreen.open(null,"","",false));assertEquals("fund_purchase",t.app.page);assertNotNull(t.findText(t.app.body,"添加基金买入"));assertTrue(t.app.body.getParent() instanceof ScrollView);segment(t.app.fundPurchaseScreen.modes,1);assertNotNull(t.findText(t.app.body,"每期金额"));assertNotNull(t.findText(t.app.body,"首期购买时间（北京时间）"));segment(t.app.fundPurchaseScreen.cycles,2);assertNotNull(t.findText(t.app.body,"执行日"));assertNull(t.findText(t.app.body,"首期购买时间（北京时间）"));old.shot("v479-buy-plan.png");}

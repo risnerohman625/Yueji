@@ -98,6 +98,8 @@ public class MainActivity extends Activity {
     void commit(Ledger.Data candidate){
         synchronized(LedgerStore.class){
             Ledger.Data newest=store.load();
+            for(Ledger.WatchFund f:candidate.watchFunds)for(Ledger.WatchFund q:newest.watchFunds)if(f.code.equals(q.code))f.profile.mergeLimit(q.profile);
+            for(Ledger.Fund f:candidate.funds)for(Ledger.Fund q:newest.funds)if(f.id==q.id&&f.code.equals(q.code))f.profile.mergeLimit(q.profile);
             for(Ledger.Fund f:candidate.funds)for(Ledger.Fund q:newest.funds)
                 if(f.id==q.id&&f.code.equals(q.code)&&q.updatedAt.compareTo(f.updatedAt)>0){f.nav=q.nav;f.previous=q.previous;f.navDate=q.navDate;f.error=q.error;f.prices.putAll(q.prices);f.navReturns.putAll(q.navReturns);f.dividends.putAll(q.dividends);f.splits.putAll(q.splits);f.updatedAt=q.updatedAt;FundEngine.resolve(f,fundScreens.calendar());}
             store.save(candidate);
@@ -370,7 +372,7 @@ public class MainActivity extends Activity {
             if(item instanceof AccountCash.Flow){accountActivity(a,(AccountCash.Flow)item);continue;}Ledger.Snapshot s=(Ledger.Snapshot)item;
             boolean initial=a.openingKnown&&s.at.equals(a.created);LinearLayout c=card(),r=row();c.setBackground(ripple(WHITE,18));
             TextView date=fit(text(TIME.format(s.at),12,INK,true),12,8);r.addView(date,new LinearLayout.LayoutParams(0,dp(29),1));
-            TextView balance=fit(text("¥ "+money(s.balances.get(a.id)),17,PURPLE,true),17,8);balance.setTag("bounded-number");LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,dp(29),1.1f);bp.leftMargin=dp(8);r.addView(balance,bp);c.addView(r);
+            TextView balance=fit(text("¥ "+money(s.balances.get(a.id)),17,RecordColors.color(RecordColors.Role.BALANCE),true),17,8);balance.setTag("bounded-number");LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(0,dp(29),1.1f);bp.leftMargin=dp(8);r.addView(balance,bp);c.addView(r);
             if(initial){gap(c,4);c.addView(text("初始余额",11,PURPLE,true));}
             String note=AccountRecords.note(s,a.id);if(!note.isEmpty()){gap(c,4);c.addView(text(note,12,MUTED,false));}if(s.cashGenerated||s.cashAccounts.contains(a.id)){gap(c,4);c.addView(text("推算余额 · 非实测",11,Ui.AMBER,false));}
             c.setOnClickListener(v->updateAccountBalance(a,s));
@@ -382,7 +384,7 @@ public class MainActivity extends Activity {
     void accountActivity(Ledger.Account a,AccountCash.Flow flow){
         LinearLayout c=card(),r=row();c.setContentDescription("账户金额流水"+flow.key);c.setBackground(ripple(WHITE,18));
         r.addView(fit(text(TIME.format(flow.at),12,INK,true),12,8),new LinearLayout.LayoutParams(0,dp(29),1));
-        TextView amount=fit(text((flow.delta>=0?"+":"-")+"¥ "+money(Math.abs(flow.delta)),17,flow.delta>=0?Ui.GREEN:RED,true),17,8);amount.setTag("bounded-number");r.addView(amount,new LinearLayout.LayoutParams(0,dp(29),1.1f));c.addView(r);gap(c,4);c.addView(text(flow.source,12,MUTED,false));
+        TextView amount=fit(text((flow.delta>=0?"+":"-")+"¥ "+money(Math.abs(flow.delta)),17,RecordColors.color(RecordColors.flow(data,flow)),true),17,8);amount.setTag("bounded-number");r.addView(amount,new LinearLayout.LayoutParams(0,dp(29),1.1f));c.addView(r);gap(c,4);c.addView(text(flow.source,12,MUTED,false));
         c.setOnClickListener(v->editAccountActivity(a,flow));
         SwipeRow swipe=new SwipeRow(this,c,new SwipeRow.Action("编辑","编辑金额流水"+flow.key,PURPLE,false,()->editAccountActivity(a,flow)),new SwipeRow.Action("删除","删除金额流水"+flow.key,RED,false,()->AppIcons.dialog(this).setTitle("隐藏这条金额流水？").setMessage("只隐藏本账户卡片，不撤销收支或资金变动；在原记录再次保存可恢复。要撤销记账，请编辑原记录取消关联，或删除原记录。").setNegativeButton("取消",null).setPositiveButton("删除",(d,w)->{try{Ledger.Data candidate=copy();AccountCash.hide(candidate,a.id,flow.key);commit(candidate);render();}catch(Exception e){error(e);}}).show()));
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(8);body.addView(swipe,lp);
@@ -433,25 +435,28 @@ public class MainActivity extends Activity {
     interface AxisClick{void select(int index);}
     int[] flowOrder(){return FlowOrder.read(getPreferences(0).getString("flowOrder","0,1,2"));}
     void flow(){
-        String[] names={"收入","大宗支出","报销","负债"};String[] badges={"收","支","销","债"};String[] kinds={Ledger.INCOME,Ledger.LARGE,Ledger.REIMBURSE,"debt"};int[] colors={RED,EXP,PURPLE,Ui.AMBER};int[] soft={Ui.RED_SOFT,Ui.GREEN_SOFT,PALE,Ui.AMBER_SOFT};
+        String[] names={"收入","大宗支出","报销","负债"};String[] badges={"收","支","销","债"};String[] kinds={Ledger.INCOME,Ledger.LARGE,Ledger.REIMBURSE,"debt"};int[] colors={RED,EXP,Ui.BLUE,Ui.AMBER};int[] soft={Ui.RED_SOFT,Ui.GREEN_SOFT,Ui.BLUE_SOFT,Ui.AMBER_SOFT};
         int[] order=flowOrder();
-        FlowLayout entries=new FlowLayout(this).columns(1).gaps(0,dp(10));
+        FlowLayout entries=new FlowLayout(this).columns(1).gaps(0,dp(6));
         entries.draggable(4,(from,to)->{getPreferences(0).edit().putString("flowOrder",FlowOrder.encode(FlowOrder.move(order,from,to))).apply();render();});
-        entries.setContentDescription("收支入口排序");body.addView(entries,new LinearLayout.LayoutParams(-1,-2));gap(body,10);
+        entries.setContentDescription("收支入口排序");body.addView(entries,new LinearLayout.LayoutParams(-1,-2));gap(body,6);
         for(int i:order){
             final String kind=kinds[i];final int index=i;
-            LinearLayout strip=row();strip.setBackground(ripple(WHITE,20));strip.setElevation(dp(1.5f));strip.setPadding(dp(14),dp(8),dp(14),dp(8));strip.setContentDescription("入口"+names[i]);
+            LinearLayout strip=row();strip.setBackground(ripple(WHITE,20));strip.setElevation(dp(1.5f));strip.setPadding(dp(14),dp(6),dp(14),dp(6));strip.setContentDescription("入口"+names[i]);
             TextView badge=text(badges[i],18,colors[i],true);badge.setGravity(Gravity.CENTER);badge.setBackground(shape(soft[i],15));strip.addView(badge,new LinearLayout.LayoutParams(dp(44),dp(44)));
-            LinearLayout label=col();label.setPadding(dp(14),0,dp(8),0);label.addView(text(names[i],18,INK,true));gap(label,6);
-            long thisMonth=0,count=0;YearMonth now=YearMonth.now();for(Ledger.Entry e:data.entries)if(e.kind.equals(kind)&&YearMonth.from(e.at).equals(now)){thisMonth=Math.addExact(thisMonth,e.amount);count++;}
-            String detail=i==3?"当前待还 ¥ "+money(DebtLedger.total(data,LocalDate.now())):count==0?"本月暂无":"本月 "+count+" 笔 · ¥ "+money(thisMonth);
-            label.addView(fit(text(detail,12.5f,i==3?Ui.AMBER:count==0?MUTED:colors[i],false),12,9),new LinearLayout.LayoutParams(-1,dp(22)));
+            LinearLayout label=col();label.setPadding(dp(14),0,dp(8),0);label.addView(text(names[i],i==3?18:16,INK,true));gap(label,i==3?6:2);
+            if(i==3)label.addView(fit(text("当前待还 ¥ "+money(DebtLedger.total(data,LocalDate.now())),12.5f,Ui.AMBER,false),12,9),new LinearLayout.LayoutParams(-1,dp(22)));
+            else{
+                EntryMonths.Summary summary=EntryMonths.calculate(data,kind,YearMonth.now());
+                TextView current=fit(text("本月 ¥ "+money(summary.current),11.5f,colors[i],false),11.5f,8);current.setContentDescription("收支本月"+kind);current.setTag("bounded-number");label.addView(current,new LinearLayout.LayoutParams(-1,dp(18)));
+                TextView previous=fit(text(summary.previousLabel(YearMonth.now())+" ¥ "+money(summary.previous),11.5f,colors[i],false),11.5f,8);previous.setContentDescription("收支前月"+kind);previous.setTag("bounded-number");label.addView(previous,new LinearLayout.LayoutParams(-1,dp(18)));
+            }
             weight(strip,label);
             strip.setOnClickListener(v->{if(index==3)go("debts");else if(kind.equals(Ledger.INCOME)){categoryFocus="全部收入";go("income_detail");}else go(kind.equals(Ledger.LARGE)?"large_detail":"reimburse_detail");});
             TextView record=text("＋ 记录",14,colors[index],true);record.setGravity(Gravity.CENTER);record.setBackground(ripple(soft[index],14));record.setPadding(dp(16),0,dp(16),0);record.setMinHeight(dp(44));record.setContentDescription("记录"+names[index]);record.setOnClickListener(v->{if(index==3)debtScreens.edit(0);else openEntry(kind,null);});
             strip.addView(record,new LinearLayout.LayoutParams(-2,dp(44)));
             int extra=Math.max(0,Math.round((getResources().getConfiguration().fontScale-1)*24));
-            ViewGroup.MarginLayoutParams p=new ViewGroup.MarginLayoutParams(-1,dp((compactScreen()?64:72)+extra));entries.addView(strip,p);
+            ViewGroup.MarginLayoutParams p=new ViewGroup.MarginLayoutParams(-1,dp((i==3?(compactScreen()?64:72):(compactScreen()?72:80))+extra));entries.addView(strip,p);
         }
         LinearLayout c=card();c.setPadding(dp(14),dp(12),dp(14),dp(10));LinearLayout.LayoutParams fill=new LinearLayout.LayoutParams(-1,0,1);fill.bottomMargin=dp(4);body.addView(c,fill);
         buildFlowCard(c);
@@ -565,15 +570,15 @@ public class MainActivity extends Activity {
     void entryDetail(String kind){
         top(kind.equals(Ledger.LARGE)?"大宗支出明细":"报销明细","返回",this::back);long total=0,received=0;List<Ledger.Entry> list=new ArrayList<>();
         for(Ledger.Entry e:data.entries)if(e.kind.equals(kind)){total+=e.amount;received+=e.receivedTotal();list.add(e);}
-        LinearLayout c=card(body);metric(c,"总金额","¥ "+money(total),kind.equals(Ledger.LARGE)?EXP:PURPLE);
-        if(kind.equals(Ledger.REIMBURSE)){metric(c,"已报销","¥ "+money(received),RED);metric(c,"待报销","¥ "+money(total-received),PURPLE);}
+        LinearLayout c=card(body);metric(c,"总金额","¥ "+money(total),RecordColors.color(RecordColors.entry(kind)));
+        if(kind.equals(Ledger.REIMBURSE)){metric(c,"已报销","¥ "+money(received),Ui.BLUE);metric(c,"待报销","¥ "+money(total-received),Ui.BLUE);}
         c.addView(action("＋ 记录",()->openEntry(kind,null)));new RecordList(this,kind,null).show();
     }
     void entryRow(Ledger.Entry e){
         entryRow(body,e);
     }
     void entryRow(LinearLayout parent,Ledger.Entry e){
-        LinearLayout c=card(parent),r=row();c.setBackground(ripple(WHITE,18));int accent=e.income?RED:e.kind.equals(Ledger.LARGE)?EXP:PURPLE;
+        LinearLayout c=card(parent),r=row();c.setBackground(ripple(WHITE,18));int accent=RecordColors.color(RecordColors.entry(e.kind));
         TextView title=fit(text((e.income?data.iconOf(e.category)+"  ":"")+(e.income?e.category:e.title),15,INK,true),15,10);
         r.addView(title,new LinearLayout.LayoutParams(0,dp(29),1));TextView amount=fit(text("¥ "+money(e.amount),17,accent,true),17,9);amount.setTag("bounded-number");
         LinearLayout.LayoutParams amountParams=new LinearLayout.LayoutParams(0,dp(29),1);amountParams.leftMargin=dp(8);r.addView(amount,amountParams);c.addView(r);gap(c,6);
@@ -721,7 +726,7 @@ public class MainActivity extends Activity {
         updates().about(card(body));
         for(int i=0;i<body.getChildCount();i++){View child=body.getChildAt(i);if(child.getLayoutParams() instanceof LinearLayout.LayoutParams){LinearLayout.LayoutParams lp=(LinearLayout.LayoutParams)child.getLayoutParams();lp.bottomMargin=Math.min(lp.bottomMargin,dp(8));child.setLayoutParams(lp);}}
     }
-    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.12";}}
+    String versionName(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "4.7.13";}}
     void refreshInterval(){
         String[] labels=new String[MarketSession.INTERVALS.length];int selected=0;
         for(int i=0;i<labels.length;i++){labels[i]=MarketSession.label(MarketSession.INTERVALS[i]);if(MarketSession.INTERVALS[i]==data.settings.refreshMinutes)selected=i;}

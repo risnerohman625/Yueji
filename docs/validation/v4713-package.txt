@@ -1,0 +1,6 @@
+Version: 4.7.13 / build32
+Package: cn.yueji.balance
+Certificate SHA256: 52326c1c3837684150e996b3c6a0e007d19c78e70de397b7bad82d5e48126915
+APK SHA256: d42fc472673beda3d6db5f388e5829585cae592f46b6a40ffc3e21fd74def7b2
+Lint: 0 errors, 87 warnings
+Initial database blank. Test fixtures in test APK/external files only.
